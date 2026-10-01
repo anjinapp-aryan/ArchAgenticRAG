@@ -1,0 +1,4 @@
+# Normalize text to LF in the repo and working tree.
+* text=auto eol=lf
+# Corpus files are hashed in MANIFEST.json: store and check out byte-for-byte.
+data/corpus/** -text

@@ -1,0 +1,139 @@
+{
+  "corpus_id": "peps-v1",
+  "source_repo": "https://github.com/python/peps",
+  "source_commit": "50803e5f0aa404f34093c16d13a9bd7d21d904d1",
+  "retrieved_on": "2026-10-01",
+  "license_note": "Each PEP states it is placed in the public domain (older PEPs) or 'in the public domain or under the CC0-1.0-Universal license, whichever is more permissive' (newer PEPs). Verified per file; see 'license'.",
+  "documents": [
+    {
+      "doc_id": "pep-0008",
+      "file": "pep-0008.rst",
+      "title": "Style Guide for Python Code",
+      "status": "Active",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0008.rst",
+      "sha256": "6028935c6cb2c674d5f4d512c7ba6ce2923713b1c47ce1a78adc690db817fc5d",
+      "words": 7153
+    },
+    {
+      "doc_id": "pep-0020",
+      "file": "pep-0020.rst",
+      "title": "The Zen of Python",
+      "status": "Active",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0020.rst",
+      "sha256": "742999637cc96eef52e8148fdf65a6065a0953daee92bb48b8c739efcf6def07",
+      "words": 226
+    },
+    {
+      "doc_id": "pep-0257",
+      "file": "pep-0257.rst",
+      "title": "Docstring Conventions",
+      "status": "Active",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0257.rst",
+      "sha256": "7db41c5aaea3bfde0463307c72b38d735dc604491cadd059d7f9fe94b8142c0e",
+      "words": 1508
+    },
+    {
+      "doc_id": "pep-0484",
+      "file": "pep-0484.rst",
+      "title": "Type Hints",
+      "status": "Final",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0484.rst",
+      "sha256": "ddfe61c36a61b3ba926aaf23f4934ab17493a1cb7ea5d45497235b552c4a9f7c",
+      "words": 12978
+    },
+    {
+      "doc_id": "pep-0518",
+      "file": "pep-0518.rst",
+      "title": "Specifying Minimum Build System Requirements for Python Projects",
+      "status": "Final",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0518.rst",
+      "sha256": "511eef59d353f1528ceb0c650608d8b8eb4d312d1cb954cf2dc7bd8ab78c2248",
+      "words": 2972
+    },
+    {
+      "doc_id": "pep-0526",
+      "file": "pep-0526.rst",
+      "title": "Syntax for Variable Annotations",
+      "status": "Final",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0526.rst",
+      "sha256": "b6e0a6994ba2ab57554cba933d830daa692cdb11f9351dcb34ca7f8a3932a32e",
+      "words": 3654
+    },
+    {
+      "doc_id": "pep-0544",
+      "file": "pep-0544.rst",
+      "title": "Protocols: Structural subtyping (static duck typing)",
+      "status": "Final",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0544.rst",
+      "sha256": "d02ac1f85da2b5336daf44b360c0eeda057734da549920494972070d34613e54",
+      "words": 7245
+    },
+    {
+      "doc_id": "pep-0563",
+      "file": "pep-0563.rst",
+      "title": "Postponed Evaluation of Annotations",
+      "status": "Superseded",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0563.rst",
+      "sha256": "5512e8a43ace196dcabba98ec6041459ba6843169f951e911d04e088ed7ac559",
+      "words": 3859
+    },
+    {
+      "doc_id": "pep-0572",
+      "file": "pep-0572.rst",
+      "title": "Assignment Expressions",
+      "status": "Final",
+      "license": "public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0572.rst",
+      "sha256": "abf5401ec523a03d59a6f3173842784f426bfd49d8b0a87a512646557bcef8b1",
+      "words": 6770
+    },
+    {
+      "doc_id": "pep-0585",
+      "file": "pep-0585.rst",
+      "title": "Type Hinting Generics In Standard Collections",
+      "status": "Final",
+      "license": "CC0-1.0 OR public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0585.rst",
+      "sha256": "918bf996d429379fdba4ab9fcd52b7153e3de47907291f950eb4f017a5b08aea",
+      "words": 1686
+    },
+    {
+      "doc_id": "pep-0604",
+      "file": "pep-0604.rst",
+      "title": "Allow writing union types as ``X | Y``",
+      "status": "Final",
+      "license": "CC0-1.0 OR public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0604.rst",
+      "sha256": "c6d87a6c7ea65964e9fecde3af1e4d367e9d49be8441fdebed3682886f359a0d",
+      "words": 901
+    },
+    {
+      "doc_id": "pep-0621",
+      "file": "pep-0621.rst",
+      "title": "Storing project metadata in pyproject.toml",
+      "status": "Final",
+      "license": "CC0-1.0 OR public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0621.rst",
+      "sha256": "8710ea6fcc2f5d19571ea7b2610e5c2fbc93d44051c1e5669f40a685ab4bb49e",
+      "words": 3624
+    },
+    {
+      "doc_id": "pep-0649",
+      "file": "pep-0649.rst",
+      "title": "Deferred Evaluation Of Annotations Using Descriptors",
+      "status": "Final",
+      "license": "CC0-1.0 OR public domain",
+      "source_url": "https://github.com/python/peps/blob/50803e5f0aa404f34093c16d13a9bd7d21d904d1/peps/pep-0649.rst",
+      "sha256": "58948a3b8fb4b8a5cb55a12b2bf4719b7a3e89408e39daeeb48f4d3dc5be5e13",
+      "words": 8718
+    }
+  ]
+}

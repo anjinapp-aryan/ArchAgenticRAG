@@ -1,0 +1,553 @@
+{
+  "dataset_id": "peps-golden",
+  "version": "1.0.0",
+  "corpus_id": "peps-v1",
+  "created": "2026-10-01",
+  "description": "Golden QA set for the ArchAgenticRAG baseline over 13 Python Enhancement Proposals (public domain / CC0). Every answerable item cites verbatim evidence quotes that tests verify against data/corpus/peps.",
+  "items": [
+    {
+      "id": "A01",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "According to PEP 8, what is the maximum line length for Python code?",
+      "ground_truth": "79 characters.",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "Limit all lines to a maximum of 79 characters."}
+      ]
+    },
+    {
+      "id": "A02",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "How many aphorisms make up the Zen of Python, and how many of them have been written down?",
+      "ground_truth": "The Zen of Python consists of 20 aphorisms, only 19 of which have been written down.",
+      "source_documents": ["pep-0020"],
+      "evidence": [
+        {"doc_id": "pep-0020", "quote": "principles for Python's design into 20 aphorisms, only 19 of which have been written down."}
+      ]
+    },
+    {
+      "id": "A03",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "What kind of quotes does PEP 257 recommend around docstrings?",
+      "ground_truth": "Always use \"\"\"triple double quotes\"\"\" around docstrings, and r\"\"\"raw triple double quotes\"\"\" if the docstring contains any backslashes.",
+      "source_documents": ["pep-0257"],
+      "evidence": [
+        {"doc_id": "pep-0257", "quote": "For consistency, always use ``\"\"\"triple double quotes\"\"\"`` around docstrings."},
+        {"doc_id": "pep-0257", "quote": "Use ``r\"\"\"raw triple double quotes\"\"\"`` if you use any backslashes in your docstrings."}
+      ]
+    },
+    {
+      "id": "A04",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "How many spaces per indentation level does PEP 8 recommend?",
+      "ground_truth": "4 spaces per indentation level.",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "Use 4 spaces per indentation level."}
+      ]
+    },
+    {
+      "id": "A05",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "What notation does PEP 572 introduce for assigning to variables within an expression?",
+      "ground_truth": "The notation NAME := expr (an assignment expression, informally known as the walrus operator).",
+      "source_documents": ["pep-0572"],
+      "evidence": [
+        {"doc_id": "pep-0572", "quote": "assign to variables within an expression using the notation ``NAME := expr``."},
+        {"doc_id": "pep-0572", "quote": "the operator became informally known as \"the walrus operator\"."}
+      ]
+    },
+    {
+      "id": "A06",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "What file name and file format does PEP 518 specify for storing build system dependencies?",
+      "ground_truth": "A file named pyproject.toml, written in the TOML format.",
+      "source_documents": ["pep-0518"],
+      "evidence": [
+        {"doc_id": "pep-0518", "quote": "The build system dependencies will be stored in a file named ``pyproject.toml`` that is written in the TOML format"}
+      ]
+    },
+    {
+      "id": "A07",
+      "category": "A_direct_factual",
+      "difficulty": "easy",
+      "expected_behavior": "answer",
+      "question": "Which Python version is PEP 604 (union types written as X | Y) targeted at?",
+      "ground_truth": "Python 3.10.",
+      "source_documents": ["pep-0604"],
+      "evidence": [
+        {"doc_id": "pep-0604", "quote": "Python-Version: 3.10"}
+      ]
+    },
+    {
+      "id": "B01",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "Does PEP 484 make Python check types at runtime, and does it intend to make type hints mandatory?",
+      "ground_truth": "No on both counts. Annotations remain available at runtime through __annotations__, but no type checking happens at runtime; PEP 484 assumes a separate offline type checker that users run voluntarily, like a powerful linter. Python will remain dynamically typed and the authors have no desire to ever make type hints mandatory, even by convention.",
+      "source_documents": ["pep-0484"],
+      "evidence": [
+        {"doc_id": "pep-0484", "quote": "``__annotations__`` attribute, *no type checking happens at runtime*."},
+        {"doc_id": "pep-0484", "quote": "the proposal assumes the existence of a separate off-line type checker which users can run over their source code voluntarily."},
+        {"doc_id": "pep-0484", "quote": "Python will remain a dynamically typed language, and the authors have no desire to ever make type hints mandatory, even by convention."}
+      ]
+    },
+    {
+      "id": "B02",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "In PEP 544, what is the difference between an explicit subclass of a protocol and an implicit subtype of a protocol?",
+      "ground_truth": "A class is an explicit subclass of a protocol if the protocol is included in its MRO. A class is an implicit subtype if it is compatible with the protocol (structurally implements it) but the protocol is not included in its MRO.",
+      "source_documents": ["pep-0544"],
+      "evidence": [
+        {"doc_id": "pep-0544", "quote": "If a class includes a protocol in its MRO, the class is called an *explicit* subclass of the protocol."},
+        {"doc_id": "pep-0544", "quote": "If a class is compatible with a protocol but the protocol is not included in the MRO, the class is an *implicit* subtype of the protocol."}
+      ]
+    },
+    {
+      "id": "B03",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "What naming conventions does PEP 8 give for class names, function names, and constants?",
+      "ground_truth": "Class names normally use CapWords; function names are lowercase with words separated by underscores as necessary; constants are usually defined at module level and written in all capital letters with underscores separating words (e.g. MAX_OVERFLOW).",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "Class names should normally use the CapWords convention."},
+        {"doc_id": "pep-0008", "quote": "Function names should be lowercase, with words separated by underscores as necessary to improve readability."},
+        {"doc_id": "pep-0008", "quote": "Constants are usually defined on a module level and written in all capital letters with underscores separating words."}
+      ]
+    },
+    {
+      "id": "B04",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "In PEP 621, what is the purpose of the `dynamic` field, and which field may never be listed in it?",
+      "ground_truth": "`dynamic` lists the fields that were intentionally left unspecified so another tool (the build back-end) can provide them dynamically. Build back-ends must honour statically specified metadata, and must raise an error if `name` is listed in `dynamic`. Required core-metadata fields must be given statically or listed in `dynamic`.",
+      "source_documents": ["pep-0621"],
+      "evidence": [
+        {"doc_id": "pep-0621", "quote": "Specifies which fields listed by this PEP were intentionally unspecified so another tool can/will provide such metadata dynamically."},
+        {"doc_id": "pep-0621", "quote": "A build back-end MUST raise an error if the metadata specifies the ``name`` in ``dynamic``."},
+        {"doc_id": "pep-0621", "quote": "then the metadata MUST specify the field statically or list it in ``dynamic``"}
+      ]
+    },
+    {
+      "id": "B05",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "Name three places where PEP 572 prohibits unparenthesized assignment expressions.",
+      "ground_truth": "Among others: (1) at the top level of an expression statement (y := f(x) is invalid); (2) at the top level of the right-hand side of an assignment statement (y0 = y1 := f(x) is invalid); (3) as the value of a keyword argument in a call (foo(x = y := f(x)) is invalid).",
+      "source_documents": ["pep-0572"],
+      "evidence": [
+        {"doc_id": "pep-0572", "quote": "Unparenthesized assignment expressions are prohibited at the top level of an expression statement."},
+        {"doc_id": "pep-0572", "quote": "Unparenthesized assignment expressions are prohibited at the top level of the right hand side of an assignment statement."},
+        {"doc_id": "pep-0572", "quote": "Unparenthesized assignment expressions are prohibited for the value of a keyword argument in a call."}
+      ]
+    },
+    {
+      "id": "B06",
+      "category": "B_multi_sentence",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "According to PEP 8, under what conditions may a team use lines longer than 79 characters, and what limit still applies to comments and docstrings?",
+      "ground_truth": "For code maintained exclusively or primarily by a team that can agree on it, the line length limit may be increased up to 99 characters, provided comments and docstrings are still wrapped at 72 characters. The standard library itself stays at 79 characters (72 for docstrings/comments).",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "For code maintained exclusively or primarily by a team that can reach agreement on this issue, it is okay to increase the line length limit up to 99 characters, provided that comments and docstrings are still wrapped at 72 characters."},
+        {"doc_id": "pep-0008", "quote": "The Python standard library is conservative and requires limiting lines to 79 characters (and docstrings/comments to 72)."}
+      ]
+    },
+    {
+      "id": "C01",
+      "category": "C_multi_document",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "How do you annotate a parameter that accepts either an int or a str using PEP 484's notation, and what shorter syntax did PEP 604 introduce for the same thing?",
+      "ground_truth": "PEP 484 uses the special factory typing.Union, e.g. Union[int, str]. PEP 604 overloads the | operator on types so the same union can be written int | str, which is also allowed in isinstance and issubclass calls.",
+      "source_documents": ["pep-0484", "pep-0604"],
+      "evidence": [
+        {"doc_id": "pep-0484", "quote": "argument is common, there is a new special factory called ``Union``."},
+        {"doc_id": "pep-0604", "quote": "This PEP proposes overloading the ``|`` operator on types to allow writing ``Union[X, Y]`` as ``X | Y``, and allows it to appear in ``isinstance`` and ``issubclass`` calls."}
+      ]
+    },
+    {
+      "id": "C02",
+      "category": "C_multi_document",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "How does annotating a list of integers differ between the original typing-module approach and PEP 585?",
+      "ground_truth": "Originally the typing module provided a duplicated collection hierarchy, so you wrote typing.List[int]. PEP 585 enables the generics syntax on the standard collections themselves, so starting with Python 3.9 you can write list[int]; importing the duplicate aliases from typing is deprecated.",
+      "source_documents": ["pep-0585", "pep-0484"],
+      "evidence": [
+        {"doc_id": "pep-0585", "quote": "This led to the existence of a duplicated collection hierarchy in the ``typing`` module due to generics (for example ``typing.List`` and the built-in ``list``)."},
+        {"doc_id": "pep-0585", "quote": "This PEP proposes to enable support for the generics syntax in all standard collections currently available in the ``typing`` module."},
+        {"doc_id": "pep-0585", "quote": "Importing those from ``typing`` is deprecated."},
+        {"doc_id": "pep-0484", "quote": "vec = []  # type: Vector[float]"}
+      ]
+    },
+    {
+      "id": "C03",
+      "category": "C_multi_document",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "PEP 518 and PEP 621 both use pyproject.toml. What does each of them store there?",
+      "ground_truth": "PEP 518 defines the [build-system] table, whose mandatory `requires` key lists the PEP 508 dependencies needed to execute the build system (it also reserves a [tool] table for tools). PEP 621 defines the [project] table for the project's core metadata (such as name and version) for packaging tools to consume.",
+      "source_documents": ["pep-0518", "pep-0621"],
+      "evidence": [
+        {"doc_id": "pep-0518", "quote": "The ``[build-system]`` table is used to store build-related data."},
+        {"doc_id": "pep-0518", "quote": "for the table: ``requires``. This key must have a value of a list of strings representing :pep:`508` dependencies required to execute the build system"},
+        {"doc_id": "pep-0621", "quote": "This PEP specifies how to write a project's `core metadata`_ in a ``pyproject.toml`` file for packaging-related tools to consume."},
+        {"doc_id": "pep-0621", "quote": "Tools MUST specify fields defined by this PEP in a table named ``[project]``."}
+      ]
+    },
+    {
+      "id": "C04",
+      "category": "C_multi_document",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "How do PEP 563 and PEP 649 differ in the way they avoid evaluating annotations eagerly?",
+      "ground_truth": "PEP 563 stops evaluating annotations at definition time and instead preserves them in __annotations__ in string form (\"stringized annotations\"), enabled via a __future__ import from Python 3.7. PEP 649 instead lazily computes annotations on demand through a new object method called __annotate__; it replaces PEP 563 because stringized annotations caused chronic problems for runtime users of annotations.",
+      "source_documents": ["pep-0563", "pep-0649"],
+      "evidence": [
+        {"doc_id": "pep-0563", "quote": "This PEP proposes changing function annotations and variable annotations so that they are no longer evaluated at function definition time. Instead, they are preserved in ``__annotations__`` in string form."},
+        {"doc_id": "pep-0649", "quote": "It adds a new internal mechanism for lazily computing annotations on demand, via a new object method called ``__annotate__``."},
+        {"doc_id": "pep-0649", "quote": "But stringized annotations in turn caused chronic problems for runtime users of annotations."}
+      ]
+    },
+    {
+      "id": "C05",
+      "category": "C_multi_document",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "How were variable types annotated under PEP 484, and what syntax did PEP 526 add instead?",
+      "ground_truth": "PEP 484 used type comments, e.g. `primes = []  # type: List[int]`. PEP 526 adds syntax for annotating variables directly (including class and instance variables), e.g. `primes: List[int] = []`.",
+      "source_documents": ["pep-0484", "pep-0526"],
+      "evidence": [
+        {"doc_id": "pep-0484", "quote": "vec = []  # type: Vector[float]"},
+        {"doc_id": "pep-0526", "quote": "it also introduced the notion of type comments to annotate variables"},
+        {"doc_id": "pep-0526", "quote": "This PEP aims at adding syntax to Python for annotating the types of variables (including class variables and instance variables), instead of expressing them through comments"}
+      ]
+    },
+    {
+      "id": "C06",
+      "category": "C_multi_document",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "Combining PEP 8 and PEP 257, which quote style should docstrings use and how long should docstring lines be?",
+      "ground_truth": "PEP 257: always use \"\"\"triple double quotes\"\"\" around docstrings. PEP 8: docstrings (and comments) should be limited to 72 characters per line.",
+      "source_documents": ["pep-0257", "pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0257", "quote": "For consistency, always use ``\"\"\"triple double quotes\"\"\"`` around docstrings."},
+        {"doc_id": "pep-0008", "quote": "(docstrings or comments), the line length should be limited to 72 characters."}
+      ]
+    },
+    {
+      "id": "D01",
+      "category": "D_ambiguous",
+      "difficulty": "medium",
+      "expected_behavior": "clarify",
+      "question": "What does the annotations PEP propose?",
+      "ground_truth": "Ambiguous: several PEPs in the corpus are about annotations. PEP 526 adds syntax for variable annotations; PEP 563 postpones evaluation of annotations by storing them as strings (now superseded); PEP 649 defers evaluation using descriptors and a new __annotate__ method. A good answer asks which PEP is meant or briefly covers each.",
+      "source_documents": ["pep-0526", "pep-0563", "pep-0649"],
+      "evidence": [
+        {"doc_id": "pep-0526", "quote": "Title: Syntax for Variable Annotations"},
+        {"doc_id": "pep-0563", "quote": "Title: Postponed Evaluation of Annotations"},
+        {"doc_id": "pep-0649", "quote": "Title: Deferred Evaluation Of Annotations Using Descriptors"}
+      ]
+    },
+    {
+      "id": "D02",
+      "category": "D_ambiguous",
+      "difficulty": "medium",
+      "expected_behavior": "clarify",
+      "question": "When was it accepted?",
+      "ground_truth": "Ambiguous: the question has no referent. The system should ask which PEP or proposal is meant instead of guessing.",
+      "source_documents": [],
+      "evidence": [],
+      "notes": "No-referent question; no evidence by design."
+    },
+    {
+      "id": "D03",
+      "category": "D_ambiguous",
+      "difficulty": "medium",
+      "expected_behavior": "clarify",
+      "question": "What does the pyproject.toml PEP specify?",
+      "ground_truth": "Ambiguous: two corpus PEPs are about pyproject.toml. PEP 518 introduces the file and its [build-system] table for build dependencies; PEP 621 specifies how to store project core metadata in its [project] table. A good answer asks which is meant or covers both.",
+      "source_documents": ["pep-0518", "pep-0621"],
+      "evidence": [
+        {"doc_id": "pep-0518", "quote": "Title: Specifying Minimum Build System Requirements for Python Projects"},
+        {"doc_id": "pep-0621", "quote": "Title: Storing project metadata in pyproject.toml"}
+      ]
+    },
+    {
+      "id": "D04",
+      "category": "D_ambiguous",
+      "difficulty": "medium",
+      "expected_behavior": "clarify",
+      "question": "What is the status of the deferred annotations proposal?",
+      "ground_truth": "Ambiguous: PEP 563 (\"Postponed Evaluation of Annotations\") has status Superseded (superseded by PEP 649 and PEP 749), while PEP 649 (\"Deferred Evaluation Of Annotations Using Descriptors\") has status Final. A good answer distinguishes the two.",
+      "source_documents": ["pep-0563", "pep-0649"],
+      "evidence": [
+        {"doc_id": "pep-0563", "quote": "Status: Superseded"},
+        {"doc_id": "pep-0563", "quote": "Superseded-By: 649, 749"},
+        {"doc_id": "pep-0649", "quote": "Status: Final"}
+      ]
+    },
+    {
+      "id": "D05",
+      "category": "D_ambiguous",
+      "difficulty": "medium",
+      "expected_behavior": "clarify",
+      "question": "How should names be written?",
+      "ground_truth": "Ambiguous: PEP 8 gives different conventions per kind of name, e.g. CapWords for classes, lowercase_with_underscores for functions and variables, and UPPER_CASE_WITH_UNDERSCORES for constants. A good answer asks which kind of name is meant or lists the conventions.",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "Class names should normally use the CapWords convention."},
+        {"doc_id": "pep-0008", "quote": "Variable names follow the same convention as function names."},
+        {"doc_id": "pep-0008", "quote": "Constants are usually defined on a module level and written in all capital letters with underscores separating words."}
+      ]
+    },
+    {
+      "id": "E01",
+      "category": "E_out_of_corpus",
+      "difficulty": "easy",
+      "expected_behavior": "abstain",
+      "question": "What does PEP 703 propose about the Global Interpreter Lock?",
+      "ground_truth": "Not answerable from the corpus: PEP 703 is not part of it. The system should say it cannot answer from the provided documents.",
+      "source_documents": [],
+      "evidence": []
+    },
+    {
+      "id": "E02",
+      "category": "E_out_of_corpus",
+      "difficulty": "medium",
+      "expected_behavior": "abstain",
+      "question": "Which PEP introduced f-strings, and in which Python version?",
+      "ground_truth": "Not answerable from the corpus. PEP 572 mentions f-strings only in passing (assignment expressions inside f-strings), which is a lexical distractor. The system should say the documents do not contain this information.",
+      "source_documents": [],
+      "evidence": [],
+      "notes": "Distractor: pep-0572 mentions f-strings."
+    },
+    {
+      "id": "E03",
+      "category": "E_out_of_corpus",
+      "difficulty": "easy",
+      "expected_behavior": "abstain",
+      "question": "What is the default port of a Qdrant server?",
+      "ground_truth": "Not answerable from the corpus. The system should say it cannot answer from the provided documents.",
+      "source_documents": [],
+      "evidence": []
+    },
+    {
+      "id": "E04",
+      "category": "E_out_of_corpus",
+      "difficulty": "medium",
+      "expected_behavior": "abstain",
+      "question": "How does asyncio.TaskGroup handle exceptions raised by its child tasks?",
+      "ground_truth": "Not answerable from the corpus. The system should say it cannot answer from the provided documents.",
+      "source_documents": [],
+      "evidence": []
+    },
+    {
+      "id": "E05",
+      "category": "E_out_of_corpus",
+      "difficulty": "medium",
+      "expected_behavior": "abstain",
+      "question": "What does PEP 8 recommend about semicolons at the end of JavaScript statements?",
+      "ground_truth": "Not answerable from the corpus: PEP 8 is a Python style guide and says nothing about JavaScript statements. It mentions semicolons only in a Python context, which is a distractor. The system should not invent a recommendation.",
+      "source_documents": [],
+      "evidence": [],
+      "notes": "Distractor: pep-0008 mentions semicolons for Python compound statements."
+    },
+    {
+      "id": "E06",
+      "category": "E_out_of_corpus",
+      "difficulty": "easy",
+      "expected_behavior": "abstain",
+      "question": "Who won the 2022 FIFA World Cup?",
+      "ground_truth": "Not answerable from the corpus. The system should say it cannot answer from the provided documents.",
+      "source_documents": [],
+      "evidence": []
+    },
+    {
+      "id": "F01",
+      "category": "F_retrieval_challenge",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "What does `from __future__ import annotations` do?",
+      "ground_truth": "It enables PEP 563's postponed evaluation of annotations, available starting with Python 3.7: function and variable annotations are no longer evaluated at definition time but preserved in __annotations__ in string form.",
+      "source_documents": ["pep-0563"],
+      "evidence": [
+        {"doc_id": "pep-0563", "quote": "The functionality described above can be enabled starting from Python 3.7 using the following special import::"},
+        {"doc_id": "pep-0563", "quote": "so that they are no longer evaluated at function definition time. Instead, they are preserved in ``__annotations__`` in string form."}
+      ],
+      "notes": "Lexical: exact import string also appears in pep-0585 and pep-0649 (distractors)."
+    },
+    {
+      "id": "F02",
+      "category": "F_retrieval_challenge",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "What is the @runtime_checkable decorator for?",
+      "ground_truth": "It is a class decorator from the typing module (PEP 544) that makes a protocol class usable in isinstance() and issubclass() checks, with the same semantics as collections.abc classes, turning it into a \"runtime protocol\". It is opt-in because instance checks are not 100% reliable statically.",
+      "source_documents": ["pep-0544"],
+      "evidence": [
+        {"doc_id": "pep-0544", "quote": "The ``typing`` module will define a special ``@runtime_checkable`` class decorator that provides the same semantics for class and instance checks as for ``collections.abc`` classes, essentially making them \"runtime protocols\""},
+        {"doc_id": "pep-0544", "quote": "Note that instance checks are not 100% reliable statically, this is why this behavior is opt-in"}
+      ],
+      "notes": "Lexical: identifier lookup."
+    },
+    {
+      "id": "F03",
+      "category": "F_retrieval_challenge",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "How can I get a static type checker to accept any object that has the right methods, without its class having to inherit from a particular base class?",
+      "ground_truth": "Use protocol classes from PEP 544, which support structural subtyping (static duck typing): a class whose methods are compatible with a protocol is implicitly considered a subtype of it, without explicit base classes.",
+      "source_documents": ["pep-0544"],
+      "evidence": [
+        {"doc_id": "pep-0544", "quote": "In this PEP we specify static and runtime semantics of protocol classes that will provide a support for *structural* subtyping (static duck typing)."},
+        {"doc_id": "pep-0544", "quote": "by allowing users to write the above code without explicit base classes in the class definition"}
+      ],
+      "notes": "Semantic paraphrase: question avoids the words 'protocol' and 'structural'."
+    },
+    {
+      "id": "F04",
+      "category": "F_retrieval_challenge",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "Is there a standard way to declare which packages must be installed before my project's build can even run?",
+      "ground_truth": "Yes. PEP 518 specifies a [build-system] table in pyproject.toml whose mandatory `requires` key is a list of PEP 508 dependency strings needed to execute the build system.",
+      "source_documents": ["pep-0518"],
+      "evidence": [
+        {"doc_id": "pep-0518", "quote": "This PEP specifies how Python software packages should specify what build dependencies they have in order to execute their chosen build system."},
+        {"doc_id": "pep-0518", "quote": "for the table: ``requires``. This key must have a value of a list of strings representing :pep:`508` dependencies required to execute the build system"}
+      ],
+      "notes": "Semantic paraphrase: avoids 'pyproject', 'build-system', 'requires'."
+    },
+    {
+      "id": "F05",
+      "category": "F_retrieval_challenge",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "What is __annotate__?",
+      "ground_truth": "A new object method introduced by PEP 649 that lazily computes annotations on demand, instead of evaluating them eagerly.",
+      "source_documents": ["pep-0649"],
+      "evidence": [
+        {"doc_id": "pep-0649", "quote": "It adds a new internal mechanism for lazily computing annotations on demand, via a new object method called ``__annotate__``."}
+      ],
+      "notes": "Lexical: dunder identifier."
+    },
+    {
+      "id": "F06",
+      "category": "F_retrieval_challenge",
+      "difficulty": "medium",
+      "expected_behavior": "answer",
+      "question": "If a long line can't be wrapped using parentheses, is it ever acceptable to continue it with a backslash?",
+      "ground_truth": "Yes. PEP 8 prefers implied continuation inside parentheses, brackets and braces, but says backslashes may still be appropriate at times, for example long multiple with-statements, which could not use implicit continuation before Python 3.10.",
+      "source_documents": ["pep-0008"],
+      "evidence": [
+        {"doc_id": "pep-0008", "quote": "Backslashes may still be appropriate at times."},
+        {"doc_id": "pep-0008", "quote": "multiple ``with``-statements could not use implicit continuation before Python 3.10, so backslashes were acceptable for that case"}
+      ],
+      "notes": "Semantic: no exact phrase overlap with the relevant section heading."
+    },
+    {
+      "id": "G01",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "Which PEP in this collection superseded PEP 563, and what new object method does that superseding PEP introduce?",
+      "ground_truth": "PEP 563's header lists it as superseded by PEP 649 (and PEP 749, which is not in the corpus). PEP 649 introduces the __annotate__ method for lazily computing annotations.",
+      "source_documents": ["pep-0563", "pep-0649"],
+      "evidence": [
+        {"doc_id": "pep-0563", "quote": "Superseded-By: 649, 749"},
+        {"doc_id": "pep-0649", "quote": "via a new object method called ``__annotate__``."}
+      ]
+    },
+    {
+      "id": "G02",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "PEP 604's X | Y syntax is an alternative spelling of a typing construct. Which PEP defined that construct, and what shorthand did that PEP provide for a union that includes None?",
+      "ground_truth": "The construct is Union, defined in PEP 484. PEP 484 provides Optional[T1] as a shorthand for Union[T1, None].",
+      "source_documents": ["pep-0604", "pep-0484"],
+      "evidence": [
+        {"doc_id": "pep-0604", "quote": "allow writing ``Union[X, Y]`` as ``X | Y``"},
+        {"doc_id": "pep-0484", "quote": "there is a new special factory called ``Union``."},
+        {"doc_id": "pep-0484", "quote": "As a shorthand for ``Union[T1, None]`` you can write ``Optional[T1]``"}
+      ]
+    },
+    {
+      "id": "G03",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "PEP 585 removes the need for a parallel collection hierarchy in the typing module. Name an example of such a duplicated type, and the Python version from which standard collections themselves become generic.",
+      "ground_truth": "Example: typing.List duplicating the built-in list (the typing module was built up by PEPs 484, 526, 544, 560 and 563). Starting with Python 3.9 the standard collections become generic, e.g. list[int].",
+      "source_documents": ["pep-0585"],
+      "evidence": [
+        {"doc_id": "pep-0585", "quote": "Static typing as defined by PEPs 484, 526, 544, 560, and 563 was built incrementally on top of the existing Python runtime"},
+        {"doc_id": "pep-0585", "quote": "(for example ``typing.List`` and the built-in ``list``)."},
+        {"doc_id": "pep-0585", "quote": "Python 3.9, the following collections become generic using ``__class_getitem__()`` to parameterize contained types:"}
+      ]
+    },
+    {
+      "id": "G04",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "PEP 621 tells tools where to keep their own settings by pointing to a table defined in another PEP. Which table and which PEP, and what is the single mandatory key of the build table defined in that same PEP?",
+      "ground_truth": "The [tool] table defined in PEP 518. PEP 518 also defines the [build-system] table, whose single mandatory key is `requires`.",
+      "source_documents": ["pep-0621", "pep-0518"],
+      "evidence": [
+        {"doc_id": "pep-0621", "quote": "For tools wishing to store their own settings in ``pyproject.toml``, they may use the ``[tool]`` table as defined in :pep:`518`."},
+        {"doc_id": "pep-0518", "quote": "Initially only one key of the table will be valid and is mandatory for the table: ``requires``."}
+      ]
+    },
+    {
+      "id": "G05",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "According to PEP 544, which kind of subtyping did PEP 484 specify, which kind does PEP 544 add, and how does a class qualify under the new kind without naming the protocol?",
+      "ground_truth": "PEP 484 only specifies nominal subtyping. PEP 544 adds structural subtyping (static duck typing) via protocol classes. A class that is compatible with a protocol but does not include it in its MRO is an implicit subtype of the protocol.",
+      "source_documents": ["pep-0544"],
+      "evidence": [
+        {"doc_id": "pep-0544", "quote": "However, :pep:`484` only specifies the semantics of *nominal* subtyping."},
+        {"doc_id": "pep-0544", "quote": "If a class is compatible with a protocol but the protocol is not included in the MRO, the class is an *implicit* subtype of the protocol."}
+      ]
+    },
+    {
+      "id": "G06",
+      "category": "G_multi_hop",
+      "difficulty": "hard",
+      "expected_behavior": "answer",
+      "question": "PEP 649 replaced an earlier approach to annotations. What was that approach called, from which Python version could it first be enabled, and how?",
+      "ground_truth": "\"Stringized annotations\" from PEP 563. They could be enabled starting from Python 3.7 with the special import `from __future__ import annotations`.",
+      "source_documents": ["pep-0649", "pep-0563"],
+      "evidence": [
+        {"doc_id": "pep-0649", "quote": "Python solved this by accepting :pep:`563`, incorporating a new approach called \"stringized annotations\""},
+        {"doc_id": "pep-0563", "quote": "The functionality described above can be enabled starting from Python 3.7 using the following special import::"},
+        {"doc_id": "pep-0563", "quote": "from __future__ import annotations"}
+      ]
+    }
+  ]
+}

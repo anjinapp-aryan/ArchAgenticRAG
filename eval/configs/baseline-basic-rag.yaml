@@ -1,0 +1,74 @@
+# Phase 2 baseline: Basic RAG (question -> retrieve -> generate -> answer).
+# Change any value here and the config fingerprint (part of the run id) changes too.
+config_version: 1
+run_name: baseline-basic-rag
+
+dataset:
+  path: eval/datasets/peps-v1/golden.json
+  corpus_dir: data/corpus/peps
+
+# System under test. The factory receives `system=` (below) and returns a compiled graph.
+# Settings are validated strictly by archagenticrag.rag.settings at graph build time.
+target:
+  factory: archagenticrag.graphs.basic_rag:build_graph
+  kwargs: {}
+  input_key: question
+  answer_key: answer
+  contexts_key: documents        # list[langchain Document] (metadata.doc_id -> doc id)
+
+system:
+  generator:                      # different model family from the judge (self-preference bias)
+    provider: groq
+    model: openai/gpt-oss-120b    # listed by Groq /models on 2026-10-01; preflight re-checks
+    temperature: 0
+  embedding:
+    provider: local               # FastEmbed, ONNX on CPU, no key, no server
+    model: BAAI/bge-small-en-v1.5 # MIT license, 384 dimensions
+  reranker: null                  # Basic RAG: no reranker
+  retrieval:
+    top_k: 4
+    search_type: similarity       # dense only; no hybrid in the baseline
+    embedding_dimension: 384      # checked against the model and the Qdrant collection
+    qdrant:
+      url: http://localhost:6333  # docker compose up -d qdrant
+      collection: peps_v1_bge_small_docling_480
+  chunking:
+    strategy: docling_hybrid      # Docling HybridChunker (heading-aware, token-bounded)
+    tokenizer: BAAI/bge-small-en-v1.5
+    max_tokens: 480               # bge-small truncates at 512; leaves room for the PEP title line
+    merge_peers: true
+
+# Ragas judge. Gemini, i.e. a different family from the Groq-hosted generator.
+judge:
+  llm:
+    provider: gemini
+    model: gemini-3.6-flash
+  embedding:
+    provider: gemini
+    model: gemini-embedding-001
+
+metrics:
+  - faithfulness
+  - answer_relevancy
+  - context_precision
+  - context_recall
+  - answer_correctness
+  - abstention
+  - clarification
+
+triage:                           # provisional thresholds for failure labels
+  context_recall: 0.5
+  faithfulness: 0.7
+  answer_correctness: 0.5
+  answer_relevancy: 0.5
+  context_precision: 0.5
+
+# Only add an entry copied from the provider's price page, with its URL and the date.
+# Models without an entry get cost = null (unknown), never an estimate.
+pricing: []
+
+langfuse:
+  enabled: false                  # set true once the self-hosted Langfuse stack is running
+  dataset_name: peps-golden-v1
+
+max_concurrency: 2               # free-tier rate limits (Groq generator, Gemini judge)
