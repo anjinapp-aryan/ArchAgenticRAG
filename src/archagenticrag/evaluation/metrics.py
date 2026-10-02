@@ -14,8 +14,8 @@ from archagenticrag.evaluation.config import JudgeConfig, MetricName
 from archagenticrag.evaluation.dataset import ExpectedBehavior, GoldenItem
 
 # Which metrics are meaningful for which kind of item.
-#  - answer:  the four Ragas RAG metrics plus answer_correctness (Ragas FactualCorrectness,
-#             recall mode). None of the four RAG metrics compares the answer with the
+#  - answer:  the four Ragas RAG metrics plus answer_correctness (Ragas AnswerCorrectness,
+#             recall-weighted, see the builder). None of the four RAG metrics compares the answer with the
 #             ground truth, so without it a faithful but wrong answer would pass.
 #  - clarify: Ragas AnswerRelevancy scores noncommittal answers as 0, which would punish
 #             a correct clarifying question, so it is not applied. The reference lists
@@ -86,10 +86,10 @@ class RagasScorer:
         from ragas.llms import llm_factory
         from ragas.metrics import DiscreteMetric
         from ragas.metrics.collections import (
+            AnswerCorrectness,
             AnswerRelevancy,
             ContextPrecisionWithReference,
             ContextRecall,
-            FactualCorrectness,
             Faithfulness,
         )
 
@@ -105,9 +105,12 @@ class RagasScorer:
             ),
             "context_precision": lambda: ContextPrecisionWithReference(llm=llm),
             "context_recall": lambda: ContextRecall(llm=llm),
-            # recall mode: share of reference claims covered by the answer. f1 would also
-            # penalise correct extra detail that the short ground truth leaves out.
-            "answer_correctness": lambda: FactualCorrectness(llm=llm, mode="recall", name="answer_correctness"),
+            # AnswerCorrectness extracts claims with the question in view. FactualCorrectness does
+            # not, and turned short references like "79 characters." into unverifiable claims
+            # ("The text contains 79 characters."), scoring correct answers 0. weights=[1, 0]
+            # drops the embedding-similarity term; beta=5 weights recall over precision, so
+            # correct detail beyond the short ground truth is barely penalised (ADR 008).
+            "answer_correctness": lambda: AnswerCorrectness(llm=llm, weights=[1.0, 0.0], beta=5.0),
             "abstention": lambda: DiscreteMetric(
                 name="abstention", allowed_values=list(DISCRETE_VALUES["abstention"]), prompt=ABSTENTION_PROMPT
             ),
@@ -125,8 +128,12 @@ class RagasScorer:
             allowed -= {"context_precision", "context_recall"}
         return [m for m in self.metric_names if m in allowed]
 
-    async def score(self, item: GoldenItem, answer: str, contexts: list[str]) -> list[MetricOutcome]:
-        return [await self._score_one(name, item, answer, contexts) for name in self.applicable(item)]
+    async def score(
+        self, item: GoldenItem, answer: str, contexts: list[str], only: list[str] | None = None
+    ) -> list[MetricOutcome]:
+        """Score the applicable metrics, or just those in ``only`` (used when resuming a run)."""
+        names = [n for n in self.applicable(item) if only is None or n in only]
+        return [await self._score_one(name, item, answer, contexts) for name in names]
 
     async def _score_one(self, name: str, item: GoldenItem, answer: str, contexts: list[str]) -> MetricOutcome:
         metric = self._metrics[name]
@@ -144,7 +151,7 @@ class RagasScorer:
                     user_input=item.question, retrieved_contexts=contexts, reference=item.ground_truth
                 )
             elif name == "answer_correctness":
-                result = await metric.ascore(response=answer, reference=item.ground_truth)
+                result = await metric.ascore(user_input=item.question, response=answer, reference=item.ground_truth)
             elif name in DISCRETE_VALUES:
                 result = await metric.ascore(llm=self._llm, user_input=item.question, response=answer)
                 passing, failing = DISCRETE_VALUES[name]

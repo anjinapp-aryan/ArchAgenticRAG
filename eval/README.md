@@ -7,7 +7,8 @@ eval/
 ├── runners/
 │   ├── validate_dataset.py         checks the schema, and that every evidence quote exists in the corpus
 │   ├── sync_langfuse_dataset.py    uploads the golden set to Langfuse (idempotent)
-│   └── run_eval.py                 preflight → Langfuse run_experiment → Ragas scores → results/
+│   ├── run_eval.py                 preflight → Langfuse run_experiment → Ragas scores → results/
+│   └── resume_eval.py              finishes a run that stopped part-way (e.g. a daily quota)
 └── results/<run_id>/               manifest.json, config.yaml, items.jsonl, summary.json
 ```
 
@@ -31,6 +32,23 @@ The run id is `<UTC timestamp>-<run_name>-<config fingerprint>-<random>`. `manif
 - the corpus id, source commit and manifest hash
 
 Re-running the same config against the same commit, dataset and pinned packages reproduces the run, up to LLM non-determinism.
+
+## Resuming a run (free-tier quotas)
+
+A full Ragas pass over the 42 questions needs roughly 800k–1M judge tokens. Groq's free tier allows 200,000 tokens per day per model, so one session cannot finish it. When a run stops part-way:
+
+```bash
+python eval/runners/resume_eval.py eval/results/<run_id>
+```
+
+What the resume command does:
+
+- Keeps every recorded answer, context and metric value.
+- Re-runs only failed system calls and re-scores only metrics that have no value.
+- Saves after every item.
+- Stops at the first *daily*-quota error. Run it again after the quota resets.
+- Uses the run's own `config.yaml`, and refuses to continue if the golden dataset changed.
+- Appends each session (time, git state, what was redone) to `manifest["resumes"]`.
 
 ## Environment variables
 

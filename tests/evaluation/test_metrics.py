@@ -76,7 +76,11 @@ async def test_answer_item_passes_ragas_the_right_fields():
     }
     assert metrics["faithfulness"].calls[0]["retrieved_contexts"] == ["Limit all lines to a maximum of 79 characters."]
     assert metrics["context_recall"].calls[0]["reference"] == item.ground_truth
-    assert metrics["answer_correctness"].calls[0] == {"response": "79 characters", "reference": item.ground_truth}
+    assert metrics["answer_correctness"].calls[0] == {
+        "user_input": item.question,
+        "response": "79 characters",
+        "reference": item.ground_truth,
+    }
 
 
 async def test_metric_exception_is_recorded_not_raised():

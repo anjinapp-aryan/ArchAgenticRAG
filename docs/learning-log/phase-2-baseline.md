@@ -71,7 +71,7 @@ The generator, embedding, retrieval and chunking values are **proposed defaults 
 | answer_relevancy | Ragas `AnswerRelevancy` (needs embeddings) | answer | How directly the answer addresses the question |
 | context_precision | Ragas `ContextPrecisionWithReference` | answer | Whether relevant chunks are ranked above irrelevant ones |
 | context_recall | Ragas `ContextRecall` | answer, clarify (when evidence exists) | Share of reference claims attributable to the retrieved contexts |
-| answer_correctness | Ragas `FactualCorrectness(mode="recall")` | answer | Share of ground-truth claims covered by the answer |
+| answer_correctness | Ragas `AnswerCorrectness(weights=[1, 0], beta=5)` (question-aware; replaced `FactualCorrectness`, see ADR 008 Amendment 1) | answer | Recall-weighted share of ground-truth claims covered by the answer |
 | abstention | Ragas `DiscreteMetric` | abstain | Did the system decline instead of inventing an answer? |
 | clarification | Ragas `DiscreteMetric` | clarify | Did the system ask, or cover several interpretations? |
 | source_doc_recall | deterministic (golden `source_documents` vs retrieved doc ids) | answer, clarify | Was the right *document* retrieved? |

@@ -38,7 +38,7 @@ Full evidence is in [docs/research/PHASE-2-EVALUATION-REUSE-AUDIT.md](../researc
    - `AnswerRelevancy`
    - `ContextPrecisionWithReference`
    - `ContextRecall`
-   - `FactualCorrectness(mode="recall")`, which we call answer_correctness
+   - `AnswerCorrectness(weights=[1, 0], beta=5)`, which we call answer_correctness (was `FactualCorrectness(mode="recall")`, see Amendment 1)
    - Two `DiscreteMetric` judgements: abstention (for out-of-corpus questions) and clarification (for ambiguous questions)
 2. **Execution:** Langfuse `run_experiment()`.
    - Offline client (`tracing_enabled=False`) until the self-hosted stack runs.
@@ -84,7 +84,51 @@ It was already chosen for tracing in Phase 0. Its dataset and experiment feature
 |---|---|
 | Ragas abandoned (no commit since 2026-02-24) | **Fallback trigger:** if Ragas has no new release by 2027-01-01, or our pins become uninstallable alongside the Phase 1 stack, swap `metrics.py` to DeepEval's equivalent metrics. Re-run the baseline with both libraries once to calibrate. |
 | langchain-community <0.4 conflicts with Phase 1 dependencies | Detected at install time (`uv pip check`). If it happens, run evaluation in a separate venv/extra. |
-| Judge = same model family as the generator (Gemini) → self-preference bias | Baseline config uses Gemini for both because the user's providers support it well. A cross-family judge (e.g. via OpenRouter) is listed as a Phase 3 experiment. |
+| Judge = same model family as the generator → self-preference bias | Resolved in Amendment 1: generator `openai/gpt-oss-120b`, judge `qwen/qwen3.8-27b` (both served by Groq, different model families). |
 | LLM-judge variance | Temperature is near 0 (Ragas default 0.01). Repeat runs are compared to measure variance before claiming deltas. |
 | Failure triage thresholds are arbitrary | They are provisional, configurable and recorded per run. Labels are reviewed by hand for the baseline. |
 | Langfuse server features not verified live | Run `sync_langfuse_dataset.py` and one experiment with `langfuse.enabled: true` when Docker is available, then update this ADR. |
+
+## Amendment 1 (2026-10-01, Phase 1 baseline run)
+
+### Judge model
+
+The planned Gemini judge (`gemini-3.6-flash`) could not complete a run. The free tier allows 5 requests per minute, and the provider also returned intermittent 503 errors. NVIDIA NIM models timed out (60 s) or returned 404 for this account.
+
+The judge is now Groq `qwen/qwen3.8-27b` at temperature 0. Judge embeddings for AnswerRelevancy stay on Gemini `gemini-embedding-001`.
+
+- Qwen is a different model family from the generator (`openai/gpt-oss-120b`).
+- Groq's free tier allows 8,000 tokens per minute per model, so a full run is slow, but it completes. The OpenAI SDK retries honour `retry-after`.
+
+### answer_correctness metric
+
+A smoke test with the new judge scored the correct answer to A01 ("79 characters") at **0.0**. The cause: `FactualCorrectness` decomposes the reference without seeing the question, so the reference "79 characters." became the claim "The text contains 79 characters.", which the judge rightly found unsupported. Many golden references are short noun phrases, so this would have produced false failures across the baseline.
+
+Ragas' `AnswerCorrectness` passes the question to claim extraction and classification. It is configured to keep the original recall intent:
+
+- `weights=[1.0, 0.0]`: the factuality term only. The embedding-similarity term is dropped.
+- `beta=5.0`: F-beta favouring recall, so correct detail beyond a short ground truth is barely penalised.
+
+Measured with the qwen judge on A01:
+
+| Answer | FactualCorrectness (recall) | AnswerCorrectness default | AnswerCorrectness weights=[1,0], beta=5 |
+|---|---|---|---|
+| "The maximum line length is 79 characters." | 0.0 | 0.956 | 1.0 |
+| "… 120 characters." (wrong) | 0.0 | 0.177 | 0.0 |
+| Correct, plus extra true detail (72 for docstrings, 99 by agreement) | — | 0.466 | 0.897 |
+| "The provided documents do not say." | — | 0.154 | 0.0 |
+
+A05 with the ground truth as the answer scored 1.0. The metric is still Ragas code; only its documented parameters changed.
+
+### Free-tier quota and resumable runs
+
+The first full run on 2026-10-01 produced answers for 40 of 42 questions. It then exhausted the judge's daily quota (Groq, 200,000 tokens per day): 126 metric calls failed with `tokens per day (TPD)`. About 22,000 judge tokens are needed per answerable question, roughly 800k–1M for the full set.
+
+The user chose to stay on the free tier, so runs are now resumable (`eval/runners/resume_eval.py`). A resume:
+
+- keeps successful values;
+- redoes only the failures;
+- stops at a daily-quota error;
+- logs each session in the manifest.
+
+The judge model stays the same across sessions, so the scores remain comparable. The cost is wall-clock days.

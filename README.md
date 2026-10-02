@@ -7,8 +7,8 @@ A learning and portfolio project for Agentic RAG. The rule is to never reinvent 
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Ecosystem research and architecture | Done: [docs/phase-0-research.md](docs/phase-0-research.md) |
-| 1 | Foundation and Basic RAG | **Not present in this repository** |
-| 2 | Evaluation harness and baseline | Harness, dataset and tests are done. The baseline run is blocked on Phase 1: [docs/learning-log/phase-2-baseline.md](docs/learning-log/phase-2-baseline.md) |
+| 1 | Foundation and Basic RAG | Done, pending review: Docling → FastEmbed → Qdrant → LangGraph `retrieve → generate`. [docs/PHASE-1-IMPLEMENTATION.md](docs/PHASE-1-IMPLEMENTATION.md), [docs/PHASE-1-REPORT.md](docs/PHASE-1-REPORT.md) |
+| 2 | Evaluation harness and baseline | Harness, dataset and tests are done. Basic RAG baseline measured: [docs/PHASE-2-BASELINE-RESULTS.md](docs/PHASE-2-BASELINE-RESULTS.md) |
 
 ## Layout
 
@@ -18,19 +18,23 @@ eval/datasets/         golden QA sets (versioned)
 eval/configs/          versioned evaluation run configs
 eval/runners/          CLI entry points (validate, sync to Langfuse, run)
 eval/results/          one folder per run (manifest, per-item records, summary)
-src/archagenticrag/    package code (evaluation glue in evaluation/)
-tests/                 offline unit tests (no external API calls)
+src/archagenticrag/    package code: rag/ (ingestion, Qdrant), graphs/ (LangGraph), evaluation/ (glue)
+tests/                 offline unit tests; integration/ needs Qdrant, live needs API keys
+docker-compose.yml     Qdrant server
 docs/                  research, ADRs, learning log
 ```
 
-## Evaluation quick start
+## Quick start
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install -e ".[eval]" pytest pytest-asyncio
+cp .env.example .env                                 # add the key for your provider; never commit .env
 .venv/Scripts/python -m pytest                       # offline tests
+docker compose up -d qdrant
+.venv/Scripts/python -m archagenticrag.rag.ingest eval/configs/baseline-basic-rag.yaml
 .venv/Scripts/python eval/runners/validate_dataset.py eval/datasets/peps-v1/golden.json
 .venv/Scripts/python eval/runners/run_eval.py eval/configs/baseline-basic-rag.yaml
 ```
 
-`run_eval.py` needs the Phase 1 Basic RAG graph and model provider keys. See [eval/README.md](eval/README.md).
+For a fully local LLM, set `generator.provider: ollama` in the config. See [docs/PHASE-1-IMPLEMENTATION.md](docs/PHASE-1-IMPLEMENTATION.md) and [eval/README.md](eval/README.md).
