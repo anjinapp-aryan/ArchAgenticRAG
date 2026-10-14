@@ -24,14 +24,23 @@ class QuotaScorer(FakeScorer):
         self.failing = failing or {}
         self.error = error
         self.calls: list[tuple[str, list[str] | None]] = []
+        self.scored: list[list[str]] = []
 
-    async def score(self, item, answer, contexts, only=None):
+    async def score(self, item, answer, contexts, only=None, stop=None):
         self.calls.append((item.id, only))
         outcomes = await super().score(item, answer, contexts)
         if only is not None:
             outcomes = [o for o in outcomes if o.name in only]
         bad = self.failing.get(item.id, set())
-        return [MetricOutcome(o.name, None, error=self.error) if o.name in bad else o for o in outcomes]
+        result = []
+        for i, o in enumerate(outcomes):  # mirrors RagasScorer's early stop
+            o = MetricOutcome(o.name, None, error=self.error) if o.name in bad else o
+            result.append(o)
+            if stop is not None and stop(o):
+                result += [MetricOutcome(r.name, None, error="not scored") for r in outcomes[i + 1 :]]
+                break
+        self.scored.append([o.name for o in result if o.error != "not scored"])
+        return result
 
 
 def _items(run_dir):
@@ -99,6 +108,37 @@ async def test_resume_refuses_a_changed_dataset(mini_repo):
     dataset_path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ResumeError, match="dataset changed"):
         await resume_evaluation(run_dir, repo_root=root, target=fake_target(), scorer=QuotaScorer())
+
+
+async def test_resume_stops_inside_an_item_and_keeps_the_rest_pending(mini_repo):
+    root, config_path = mini_repo()
+    run_dir = _run(root, config_path, scorer=QuotaScorer({"Q1": {"faithfulness", "answer_relevancy"}}, error=MINUTE))
+
+    # faithfulness hits the daily quota: answer_relevancy must not even be attempted
+    scorer = QuotaScorer({"Q1": {"faithfulness"}})
+    session = await resume_evaluation(run_dir, repo_root=root, target=fake_target(), scorer=scorer)
+    assert scorer.scored == [["faithfulness"]]
+    q1 = _items(run_dir)["Q1"]["metrics"]
+    assert q1["answer_relevancy"]["value"] is None and q1["answer_relevancy"]["error"]
+    assert q1["context_precision"]["value"] == 1.0  # untouched
+    assert session["still_pending_items"] == 1
+
+
+async def test_session_is_recorded_before_it_finishes(mini_repo, monkeypatch):
+    from archagenticrag.evaluation import resume as resume_module
+
+    root, config_path = mini_repo()
+    run_dir = _run(root, config_path, scorer=QuotaScorer({"Q1": {"faithfulness"}}, error=MINUTE))
+
+    def killed(*args, **kwargs):  # simulate the process dying after the first item
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(resume_module.analysis, "summarize", killed)
+    with pytest.raises(KeyboardInterrupt):
+        await resume_evaluation(run_dir, repo_root=root, target=fake_target(), scorer=QuotaScorer())
+    (entry,) = read_run(run_dir)["manifest"]["resumes"]
+    assert entry["finished_at"] is None
+    assert entry["rescored_metrics"] == {"Q1": ["faithfulness"]}
 
 
 def test_daily_quota_detection():

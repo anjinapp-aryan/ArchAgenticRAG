@@ -6,7 +6,8 @@ are kept. It only re-does
   * metrics that have no value because their judge call errored.
 Items are saved after each one, so an interrupted resume loses nothing. When a provider
 reports a *daily* quota error the resume stops early and leaves the rest for the next session.
-Every session is appended to ``manifest["resumes"]`` (time, git state, what was redone).
+Every session is appended to ``manifest["resumes"]`` (time, git state, what was redone) when it
+starts and updated after each item, so even a killed session leaves a record.
 """
 
 from __future__ import annotations
@@ -95,7 +96,10 @@ async def resume_evaluation(
         "rerun_items": [],
         "rescored_metrics": {},
         "stopped_on_daily_quota": None,
+        "finished_at": None,
     }
+    manifest.setdefault("resumes", []).append(session)
+    _write_json(run_dir / "manifest.json", manifest)
     if todo and scorer is None:
         from archagenticrag.evaluation.metrics import RagasScorer
 
@@ -130,7 +134,11 @@ async def resume_evaluation(
 
         only = failed_metrics(record)
         try:
-            outcomes = await scorer.score(g, record["answer"], record["contexts"], only=only)
+            # stop at the first daily-quota error inside the item: the SDK's own retries on the
+            # remaining metrics would only wait out a quota that will not reset for hours
+            outcomes = await scorer.score(
+                g, record["answer"], record["contexts"], only=only, stop=lambda o: is_daily_quota_error(o.error)
+            )
         except Exception as exc:  # scorer-level failure: record, keep going
             record["metrics"] = {"_scorer": {"value": None, "reason": None, "error": f"{type(exc).__name__}: {exc}"}}
             outcomes = []
@@ -141,6 +149,7 @@ async def resume_evaluation(
                 record["metrics"][o.name] = o.to_dict()
             session["rescored_metrics"][g.id] = [o.name for o in outcomes if o.value is not None]
         _write_items(run_dir, records)
+        _write_json(run_dir / "manifest.json", manifest)
 
         quota_error = next((o.error for o in outcomes if is_daily_quota_error(o.error)), None)
         if quota_error:
@@ -154,7 +163,6 @@ async def resume_evaluation(
 
     session["finished_at"] = datetime.now(UTC).isoformat()
     session["still_pending_items"] = sum(1 for r in records if pending(r))
-    manifest.setdefault("resumes", []).append(session)
     _write_json(run_dir / "manifest.json", manifest)
     return session
 

@@ -130,3 +130,11 @@ def test_missing_provider_key_fails_loudly(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
         RagasScorer.from_judge_config(["faithfulness"], judge)
+
+
+async def test_stop_skips_remaining_metrics_and_records_them_as_errors():
+    scorer, metrics = _scorer(faithfulness=FakeMetric(exc=RuntimeError("tokens per day (TPD)")))
+    outcomes = await scorer.score(_item("A01"), "a", ["c"], stop=lambda o: o.error is not None)
+    assert [o.name for o in outcomes][:1] == ["faithfulness"]
+    assert all(o.value is None and o.error.startswith("not scored") for o in outcomes[1:])
+    assert all(not m.calls for name, m in metrics.items() if name != "faithfulness")

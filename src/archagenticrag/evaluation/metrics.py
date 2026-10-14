@@ -8,6 +8,7 @@ exceptions into recorded errors instead of silently dropping them.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from collections.abc import Callable
 from typing import Any
 
 from archagenticrag.evaluation.config import JudgeConfig, MetricName
@@ -129,11 +130,28 @@ class RagasScorer:
         return [m for m in self.metric_names if m in allowed]
 
     async def score(
-        self, item: GoldenItem, answer: str, contexts: list[str], only: list[str] | None = None
+        self,
+        item: GoldenItem,
+        answer: str,
+        contexts: list[str],
+        only: list[str] | None = None,
+        stop: Callable[[MetricOutcome], bool] | None = None,
     ) -> list[MetricOutcome]:
-        """Score the applicable metrics, or just those in ``only`` (used when resuming a run)."""
+        """Score the applicable metrics, or just those in ``only`` (used when resuming a run).
+
+        If ``stop`` returns True for an outcome (e.g. a daily-quota error), the remaining
+        metrics are not attempted and are recorded as errors, so a resume picks them up later.
+        """
         names = [n for n in self.applicable(item) if only is None or n in only]
-        return [await self._score_one(name, item, answer, contexts) for name in names]
+        outcomes: list[MetricOutcome] = []
+        for i, name in enumerate(names):
+            outcome = await self._score_one(name, item, answer, contexts)
+            outcomes.append(outcome)
+            if stop is not None and stop(outcome):
+                reason = f"not scored: stopped after {name} failed ({outcome.error})"
+                outcomes += [MetricOutcome(rest, None, error=reason) for rest in names[i + 1 :]]
+                break
+        return outcomes
 
     async def _score_one(self, name: str, item: GoldenItem, answer: str, contexts: list[str]) -> MetricOutcome:
         metric = self._metrics[name]
