@@ -8,7 +8,8 @@ A learning and portfolio project for Agentic RAG. The rule is to never reinvent 
 |---|---|---|
 | 0 | Ecosystem research and architecture | Done: [docs/phase-0-research.md](docs/phase-0-research.md) |
 | 1 | Foundation and Basic RAG | Done, pending review: Docling → FastEmbed → Qdrant → LangGraph `retrieve → generate`. [docs/PHASE-1-IMPLEMENTATION.md](docs/PHASE-1-IMPLEMENTATION.md), [docs/PHASE-1-REPORT.md](docs/PHASE-1-REPORT.md) |
-| 2 | Evaluation harness and baseline | Harness, dataset and tests are done. Basic RAG baseline measured: [docs/PHASE-2-BASELINE-RESULTS.md](docs/PHASE-2-BASELINE-RESULTS.md) |
+| 2 | Evaluation harness and baseline | Done: baseline measured on 42/42 (pass 27/42; abstention 6/6; clarification 0/5; multi-document recall 0.64). [docs/PHASE-2-BASELINE-RESULTS.md](docs/PHASE-2-BASELINE-RESULTS.md) |
+| 3.1 | Query decomposition (multi-query retrieval) | **Designed, not implemented**, awaiting review: [docs/PHASE-3.1-DESIGN.md](docs/PHASE-3.1-DESIGN.md) |
 
 ## Layout
 

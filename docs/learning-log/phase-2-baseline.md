@@ -1,14 +1,8 @@
 # Phase 2: Basic RAG Baseline
 
-> **Status: BLOCKED. No baseline has been measured.**
+> **Status: MEASURED (2026-10-15).** Run `20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9`: 42/42 answers, 169 of 175 metric values (6 judge-limit gaps, recorded). Full results: [PHASE-2-BASELINE-RESULTS.md](../PHASE-2-BASELINE-RESULTS.md).
 >
-> The evaluation harness, golden dataset, configuration and tests are complete and verified. The baseline run itself could not be executed, for three reasons:
->
-> 1. **The Phase 1 Basic RAG graph does not exist in this repository.** `archagenticrag.graphs.basic_rag:build_graph` cannot be imported. The repo contained only `docs/phase-0-research.md` when Phase 2 started.
-> 2. **No model provider keys** (`GEMINI_API_KEY` etc.) are set in the environment.
-> 3. **Docker Desktop is not running**, so the self-hosted Langfuse and Qdrant stacks are unavailable.
->
-> Every section below that needs measurements says **NOT RUN**. No numbers here are estimated or invented. The run command at the end fills this log once the blockers are cleared.
+> The sections below keep the original plan; the configuration table reflects what was actually run.
 
 ## System Configuration
 
@@ -17,19 +11,17 @@ This is the configuration the baseline will be measured with, from [eval/configs
 | Setting | Value |
 |---|---|
 | Architecture | Question → Retrieve → Generate → Answer (no rewriting, grading, routing or reflection) |
-| Generator | Gemini `gemini-3.8-flash`, temperature 0 (via the OpenAI-compatible endpoint) |
-| Embeddings | Gemini `gemini-embedding-001` |
-| Retrieval | dense similarity, top_k = 4 |
+| Generator | Groq `openai/gpt-oss-120b`, temperature 0 |
+| Embeddings | FastEmbed `BAAI/bge-small-en-v1.5` (local, 384-d) |
+| Retrieval | Qdrant, dense cosine similarity, top_k = 4 |
 | Reranker | none |
-| Chunking | recursive character, 1000 chars, 150 overlap |
-| Judge (Ragas) | Gemini `gemini-3.8-flash`, Ragas default args (temperature 0.01, max_tokens 1024) |
+| Chunking | Docling HybridChunker, 480 bge tokens, 455 chunks |
+| Judge (Ragas) | Groq `qwen/qwen3.8-27b`, temperature 0, Ragas default max_tokens 1024 |
 | Judge embeddings | Gemini `gemini-embedding-001` |
-| Eval framework | ragas 0.4.3, langfuse 4.16.0 (offline mode), langchain-core 1.6.6, langchain-community 0.3.31 |
+| Eval framework | ragas 0.4.3, langfuse 4.16.0 (offline mode), langchain-community 0.3.31 |
 | Dataset | peps-golden v1.0.0 (42 items) over corpus peps-v1 (python/peps @ `50803e5f`) |
 
-The model names come from Google's OpenAI-compatibility docs on 2026-10-01. `run_eval.py` re-checks them against the provider's `/models` list before running.
-
-The generator, embedding, retrieval and chunking values are **proposed defaults for Phase 1**. When the Phase 1 graph lands, the config must be changed to match what it actually uses (or the graph built from this config). The run manifest records the config verbatim either way.
+The planned Gemini configuration was replaced. Gemini's free tier allows 5 requests/minute, and NVIDIA NIM timed out. ADR 008, Amendment 1 has the details.
 
 ## Dataset
 
@@ -79,11 +71,12 @@ The generator, embedding, retrieval and chunking values are **proposed defaults 
 
 ## Results
 
-**NOT RUN.** Per-category tables will be produced from `eval/results/<run_id>/summary.json` (`metrics_by_category`, `pass_rate_by_category`).
+Overall: faithfulness 0.847, answer relevancy 0.887, context precision 0.756, context recall 0.783, answer correctness 0.724, abstention 6/6, clarification 0/5, pass 27/42. Per-category tables are in [PHASE-2-BASELINE-RESULTS.md](../PHASE-2-BASELINE-RESULTS.md), section 4.
+
 
 ## Failure Analysis
 
-**NOT RUN.** Every item gets a provisional label from `analysis.triage`. It blames the earliest failing pipeline stage:
+Every item gets a provisional label from `analysis.triage`. It blames the earliest failing pipeline stage:
 
 | Label | Rule (provisional thresholds in the config) | Question it answers |
 |---|---|---|
@@ -97,62 +90,74 @@ The generator, embedding, retrieval and chunking values are **proposed defaults 
 | flag `retrieval_too_broad` | `context_precision` < 0.5 while recall ≥ 0.5 | 7. Was retrieval too broad? |
 | flag `retrieval_too_narrow` | set together with CONTEXT_FAILURE | 8. Was retrieval too narrow? |
 
-Labels are a starting point. Each failed item will be read by hand (answer, contexts, metric reasons) before the analysis is written.
+Labels are a starting point. All 15 failed items were read by hand; the verified causes (which differ from the label for several items) are in the results report, section 5.
 
 ## Failure Matrix
 
-**NOT RUN.**
-
-| Failure Type | Count | % |
+| Label | Count | % of failures |
 |---|---:|---:|
-| Retrieval failure | — | — |
-| Context insufficient | — | — |
-| Generation failure | — | — |
-| Hallucination | — | — |
-| Ambiguous question | — | — |
-| Out of corpus | — | — |
-| Other | — | — |
+| AMBIGUITY | 5 | 33% |
+| GENERATION_FAILURE | 4 | 27% |
+| HALLUCINATION | 4 | 27% |
+| CONTEXT_FAILURE | 1 | 7% |
+| OTHER (unscorable) | 1 | 7% |
+| RETRIEVAL_FAILURE, OUT_OF_CORPUS | 0 | 0% |
+
+By verified cause:
+
+- **Retrieval missed a document or section: 5.** In every multi-document miss, all 4 chunks came from one PEP.
+- **No clarification: 5.**
+- **Judge-side: 4.**
+- **Unscorable: 1.**
+
 
 ## Cost
 
-**NOT RUN.**
+The generator used 45,018 input and 9,174 output tokens; cost is `null` (no published price entered).
 - Token counts for the system under test are captured per item, per model, through LangChain's `UsageMetadataCallbackHandler`.
 - `pricing: []` in the config means cost is reported as `null` (unknown). A price is only added with its source URL and verification date.
 - Ragas judge tokens are **not** captured. Judge cost must be read from the provider dashboard.
 
 ## Latency
 
-**NOT RUN.** The run records end-to-end latency per item (mean, p50, p95), retriever time via LangChain callbacks, and LLM call count per item.
+| | Mean | p50 | p95 |
+|---|---:|---:|---:|
+| End to end | 7.27 s | 6.92 s | 20.14 s |
+| Retrieval | 26 ms | 22 ms | 44 ms |
+
+Latency includes free-tier queueing. There is 1 LLM call per question.
+
 
 ## Observations
 
-None yet: no run.
+1. Single-document questions (A, B) and out-of-corpus abstention (E, 6/6) are strong.
+2. Multi-document questions (C) collapse onto one PEP: precision 0.42, recall 0.64.
+3. Ambiguous questions are never clarified (0/5).
+4. 4 of 15 failures are judge-side.
+5. Free-tier judging took 8 sessions over 2 weeks. Groq also began rejecting Ragas' 1,024-token judge requests (an output-tokens-per-minute limit).
+
 
 ## Limitations
 
-- The baseline depends on a Phase 1 graph that is not present.
-- Judge and generator are the same model family (self-preference risk).
+- 6 metric values are unscorable on the free-tier judge (C04, G02, G03).
+- `evidence_in_context` under-reports, because the golden quotes are raw reStructuredText.
 - 42 items is enough to see category-level patterns, but too few for small deltas. Repeat runs are needed to estimate judge variance before comparing patterns.
 - The ground truth was written by one author (the assistant) from verbatim corpus quotes. The quotes are machine-verified, but the wording of the reference answers has not been independently reviewed.
 - The Langfuse server path is untested live.
 
 ## Next Experiments
 
-These are for Phase 3 and later. They are listed only, not implemented.
+The chosen next step is **Phase 3.1, query decomposition**, measured against two controls: B1 (`top_k=8`) and B2 (MMR). See [PHASE-3.1-DESIGN.md](../PHASE-3.1-DESIGN.md).
 
-1. Once the run has happened: repeat the baseline 3× to measure judge variance.
-2. A cross-family judge (e.g. an OpenRouter or NVIDIA model) to check self-preference bias.
-3. Hybrid (BM25 + dense) retrieval: is the gap between the lexical F items and the semantic F items real?
-4. top_k sweep (4 / 8) to separate CONTEXT_FAILURE from generation issues.
-5. Then the agentic patterns from the Phase 0 plan, each measured against this baseline.
+Still open:
 
-## How to complete this log
+- Repeat the run to measure judge variance.
+- Hybrid retrieval: F showed no lexical gap (recall 0.94), so this is low priority.
+
+
+## How to reproduce
 
 ```bash
-# 1. Phase 1 graph available at archagenticrag.graphs.basic_rag:build_graph(system=...)
-# 2. export GEMINI_API_KEY=...
 .venv/Scripts/python eval/runners/run_eval.py eval/configs/baseline-basic-rag.yaml
-# optional, with the self-hosted Langfuse stack running and LANGFUSE_* set:
-.venv/Scripts/python eval/runners/sync_langfuse_dataset.py eval/configs/baseline-basic-rag.yaml
-#   then set langfuse.enabled: true in the config and re-run
+.venv/Scripts/python eval/runners/resume_eval.py eval/results/<run_id>   # repeat after quota resets
 ```
