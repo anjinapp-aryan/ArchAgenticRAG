@@ -105,3 +105,30 @@ def test_qdrant_collection_holds_all_chunks(client, store, chunks):
 def test_known_questions_retrieve_the_relevant_document(store, settings, query, expected_doc):
     hits = store.similarity_search(query, k=settings.retrieval.top_k)
     assert expected_doc in [h.metadata["doc_id"] for h in hits]
+
+
+def test_phase31_fan_out_and_merge_on_the_real_index(store, settings, client, embeddings):
+    """Phase 3.1 mechanics on real Qdrant + FastEmbed, with a fixed (fake) decomposer: one retrieval
+    per sub-question, original question's hits first, unique chunks, capped at 8. Whether the real
+    LLM decomposer improves retrieval is an experiment result, not a test assertion."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    from langchain_core.runnables import RunnableLambda
+
+    from archagenticrag.graphs.decompose_rag import SubQuestions, build_graph
+
+    class FixedDecomposer(FakeListChatModel):
+        def with_structured_output(self, schema, **kwargs):  # noqa: ANN001, ANN003
+            return RunnableLambda(lambda _: SubQuestions(sub_questions=["PEP 518 build system requirements"]))
+
+    system = settings.model_dump(mode="json")
+    system["decomposition"] = {"max_sub_questions": 3, "max_context_chunks": 8}
+    graph = build_graph(system=system, client=client, embeddings=embeddings, llm=FixedDecomposer(responses=["ok"]))
+    out = graph.invoke({"question": "What does PEP 621 store in pyproject.toml?"})
+
+    doc_ids = [d.metadata["doc_id"] for d in out["documents"]]
+    chunk_ids = [d.metadata["chunk_id"] for d in out["documents"]]
+    assert out["sub_questions"] == ["What does PEP 621 store in pyproject.toml?", "PEP 518 build system requirements"]
+    assert len(chunk_ids) == len(set(chunk_ids)) <= 8
+    assert {"pep-0518", "pep-0621"} <= set(doc_ids)
+    original = [d.metadata["chunk_id"] for d in store.similarity_search(out["sub_questions"][0], k=settings.retrieval.top_k)]
+    assert chunk_ids[: len(original)] == original

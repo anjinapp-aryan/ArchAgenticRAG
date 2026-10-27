@@ -121,3 +121,23 @@ def test_ragas_tracking_is_disabled_by_default(mini_repo, monkeypatch):
     import os
 
     assert os.environ["RAGAS_DO_NOT_TRACK"] == "true"
+
+
+def test_record_keys_are_stored_per_item(mini_repo):
+    def run(inputs: dict) -> dict:
+        return {"answer": "42.", "documents": ["The answer to life is 42."], "sub_questions": [inputs["question"], "x?"]}
+
+    root, config_path = mini_repo()
+    import yaml
+
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config["target"]["record_keys"] = ["sub_questions"]
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    run_dir = _run(root, config_path, target=RunnableLambda(run))
+    items = read_run(run_dir)["items"]
+    assert all(r["recorded"]["sub_questions"][1] == "x?" for r in items)
+
+
+def test_items_have_no_recorded_field_without_record_keys(mini_repo):
+    root, config_path = mini_repo()
+    assert all("recorded" not in r for r in read_run(_run(root, config_path))["items"])

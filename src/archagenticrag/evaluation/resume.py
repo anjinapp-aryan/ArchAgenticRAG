@@ -130,6 +130,8 @@ async def resume_evaluation(
                 metrics={},
                 retrieval=analysis.retrieval_checks(g, res.contexts, res.context_doc_ids),
             )
+            if config.target.record_keys:
+                record["recorded"] = res.recorded
             session["rerun_items"].append(g.id)
 
         only = failed_metrics(record)

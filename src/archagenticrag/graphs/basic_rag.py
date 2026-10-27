@@ -18,7 +18,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
-from archagenticrag.rag.settings import RAGSettings, parse_settings
+from archagenticrag.rag.settings import RAGSettings, SettingsError, parse_settings
 
 SYSTEM_PROMPT = (
     "You are a question-answering assistant. Answer the user's question using only the "
@@ -52,6 +52,11 @@ def format_documents(documents: list[Document]) -> str:
     return "\n\n".join(blocks)
 
 
+def make_retriever(store: Any, settings: RAGSettings):
+    """Retriever from the retrieval settings. The baseline is ``similarity`` with ``k=top_k``."""
+    return store.as_retriever(search_type=settings.retrieval.search_type, search_kwargs=settings.retrieval.search_kwargs())
+
+
 def build_graph(
     system: dict[str, Any],
     *,
@@ -70,6 +75,10 @@ def build_graph(
     from archagenticrag.rag.vector_store import make_client, make_embeddings, open_store
 
     settings: RAGSettings = parse_settings(system)
+    if settings.decomposition is not None:
+        raise SettingsError(
+            "system.decomposition is set: use archagenticrag.graphs.decompose_rag:build_graph for Phase 3.1"
+        )
     client = client if client is not None else make_client(settings.retrieval.qdrant)
     embeddings = embeddings if embeddings is not None else make_embeddings(settings.embedding)
     llm = llm if llm is not None else chat_model(
@@ -77,7 +86,7 @@ def build_graph(
     )
 
     store, index_meta = open_store(client, settings, embeddings)
-    retriever = store.as_retriever(search_type="similarity", search_kwargs={"k": settings.retrieval.top_k})
+    retriever = make_retriever(store, settings)
     answer_chain = PROMPT | llm | StrOutputParser()
 
     def retrieve(state: RAGState, config: RunnableConfig) -> RAGState:

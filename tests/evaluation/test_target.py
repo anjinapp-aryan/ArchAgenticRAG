@@ -73,3 +73,15 @@ def test_missing_target_module_gives_clear_error():
 def test_missing_target_function_gives_clear_error():
     with pytest.raises(TargetError, match="has no attribute 'nope'"):
         load_factory(TargetRef(factory="archagenticrag.graphs.basic_rag:nope"))
+
+
+def test_call_stats_handles_llm_error_with_response_keyword():
+    # LangChain calls on_llm_error(error, run_id=..., response=...); this used to raise TypeError.
+    import uuid
+
+    from archagenticrag.evaluation.target import _CallStats
+
+    stats, run_id = _CallStats(), uuid.uuid4()
+    stats.on_llm_start({}, ["p"], run_id=run_id)
+    stats.on_llm_error(RuntimeError("429"), run_id=run_id, response=None)
+    assert stats.llm_calls == 1 and stats.llm_seconds >= 0 and not stats._llm_starts

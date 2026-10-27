@@ -57,22 +57,32 @@ class _CallStats(BaseCallbackHandler):
         self.llm_calls += 1
         self._llm_starts[run_id] = time.perf_counter()
 
-    def on_llm_end(self, response, *, run_id, **kwargs):  # noqa: ANN001
+    def _end_llm(self, run_id) -> None:  # noqa: ANN001
         start = self._llm_starts.pop(run_id, None)
         if start is not None:
             self.llm_seconds += time.perf_counter() - start
 
-    on_llm_error = on_llm_end
+    def on_llm_end(self, response, *, run_id, **kwargs):  # noqa: ANN001
+        self._end_llm(run_id)
+
+    # LangChain passes the error positionally and may also pass `response=` as a keyword,
+    # so this cannot simply alias on_llm_end.
+    def on_llm_error(self, error, *, run_id, **kwargs):  # noqa: ANN001
+        self._end_llm(run_id)
 
     def on_retriever_start(self, serialized, query, *, run_id, **kwargs):  # noqa: ANN001
         self._starts[run_id] = time.perf_counter()
 
-    def on_retriever_end(self, documents, *, run_id, **kwargs):  # noqa: ANN001
+    def _end_retriever(self, run_id) -> None:  # noqa: ANN001
         start = self._starts.pop(run_id, None)
         if start is not None:
             self.retriever_seconds += time.perf_counter() - start
 
-    on_retriever_error = on_retriever_end
+    def on_retriever_end(self, documents, *, run_id, **kwargs):  # noqa: ANN001
+        self._end_retriever(run_id)
+
+    def on_retriever_error(self, error, *, run_id, **kwargs):  # noqa: ANN001
+        self._end_retriever(run_id)
 
 
 @dataclass
@@ -86,6 +96,7 @@ class TargetResult:
     generation_latency_s: float = 0.0  # time inside LLM calls
     usage: dict[str, dict[str, int]] = field(default_factory=dict)  # model -> token counts
     error: str | None = None
+    recorded: dict[str, Any] = field(default_factory=dict)  # TargetRef.record_keys -> output values
 
 
 def _doc_id(metadata: dict) -> str | None:
@@ -126,10 +137,11 @@ async def run_target(target: Any, ref: TargetRef, question: str, extra_callbacks
         if not isinstance(answer, str):
             answer = getattr(answer, "content", None) or str(answer)
         contexts, ids = _normalize_contexts(output.get(ref.contexts_key))
+        recorded = {key: output.get(key) for key in ref.record_keys}
         error = None
     except Exception as exc:
         latency = time.perf_counter() - start
-        answer, contexts, ids = "", [], []
+        answer, contexts, ids, recorded = "", [], [], {}
         error = f"{type(exc).__name__}: {exc}"
     return TargetResult(
         answer=answer,
@@ -141,4 +153,5 @@ async def run_target(target: Any, ref: TargetRef, question: str, extra_callbacks
         generation_latency_s=stats.llm_seconds,
         usage={model: dict(meta) for model, meta in usage.usage_metadata.items()},
         error=error,
+        recorded=recorded,
     )

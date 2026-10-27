@@ -40,3 +40,28 @@ def test_one_golden_question_through_the_evaluator(tmp_path):
     assert "pep-0008" in item["retrieval"]["retrieved_doc_ids"]
     assert item["metrics"], "Ragas produced no metrics"
     assert run["manifest"]["target_metadata"]["index"]["embedding_dimension"] == 384
+
+
+def test_phase31_one_golden_question_through_the_evaluator(tmp_path):
+    """C03 through the real Phase 3.1 graph (Groq decomposer + generator) and the Ragas judge.
+    Checks the contract only; retrieval quality is measured by the benchmark, not asserted here."""
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / ".env")
+    golden = json.loads((REPO_ROOT / "eval/datasets/peps-v1/golden.json").read_text(encoding="utf-8"))
+    golden["items"] = [i for i in golden["items"] if i["id"] == "C03"]
+    (tmp_path / "golden.json").write_text(json.dumps(golden), encoding="utf-8")
+
+    config = yaml.safe_load((REPO_ROOT / "eval/configs/phase3-1-decomposition.yaml").read_text(encoding="utf-8"))
+    config["run_name"] = "live-smoke-phase31"
+    config["dataset"] = {"path": str(tmp_path / "golden.json"), "corpus_dir": str(REPO_ROOT / "data/corpus/peps")}
+    config_path = tmp_path / "live.yaml"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    run = read_run(run_evaluation(config_path, repo_root=REPO_ROOT, results_root=tmp_path / "results"))
+    (item,) = run["items"]
+    assert item["error"] is None and item["answer"].strip()
+    assert item["recorded"]["sub_questions"][0] == item["question"]
+    assert 1 <= len(item["recorded"]["sub_questions"]) <= 3
+    assert item["llm_calls"] == 2  # decompose + generate
+    assert run["manifest"]["target_metadata"]["graph"] == "decompose_rag"

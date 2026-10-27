@@ -72,6 +72,8 @@ class TargetRef(_Strict):
     input_key: str = "question"
     answer_key: str = "answer"
     contexts_key: str = "documents"
+    # Extra output state keys to store per item (e.g. Phase 3.1 "sub_questions"). Optional.
+    record_keys: list[str] = Field(default_factory=list)
 
 
 class SystemConfig(_Strict):
@@ -83,6 +85,7 @@ class SystemConfig(_Strict):
     reranker: ModelRef | None = None
     retrieval: dict = Field(default_factory=dict)  # e.g. {top_k: 4, search_type: similarity}
     chunking: dict = Field(default_factory=dict)  # e.g. {strategy: ..., chunk_size: ..., chunk_overlap: ...}
+    decomposition: dict | None = None  # Phase 3.1 query decomposition; validated by rag.settings
 
 
 class JudgeConfig(_Strict):
@@ -125,7 +128,14 @@ class EvalConfig(_Strict):
     max_concurrency: int = Field(default=4, ge=1, le=32)
 
     def fingerprint(self) -> str:
-        canonical = json.dumps(self.model_dump(mode="json"), sort_keys=True)
+        data = self.model_dump(mode="json")
+        # Fields added after the baseline run are left out while unset, so configs that do
+        # not use them (the Phase 2 baseline) keep their original fingerprint.
+        if data["system"].get("decomposition") is None:
+            del data["system"]["decomposition"]
+        if not data["target"].get("record_keys"):
+            del data["target"]["record_keys"]
+        canonical = json.dumps(data, sort_keys=True)
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 

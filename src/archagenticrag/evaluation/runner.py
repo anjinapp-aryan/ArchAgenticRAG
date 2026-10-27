@@ -97,6 +97,8 @@ def run_evaluation(
             "metrics": {},
             "retrieval": analysis.retrieval_checks(g, res.contexts, res.context_doc_ids),
         }
+        if config.target.record_keys:
+            records[g.id]["recorded"] = res.recorded
         return {"answer": res.answer, "contexts": res.contexts, "error": res.error}
 
     async def ragas_evaluator(*, metadata: Any = None, **_: Any) -> list[Any]:

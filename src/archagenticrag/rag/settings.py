@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from archagenticrag.providers import PROVIDERS
 
@@ -45,9 +45,27 @@ class QdrantSettings(_Strict):
 
 class RetrievalSettings(_Strict):
     top_k: int = Field(ge=1, le=50)
-    search_type: Literal["similarity"] = "similarity"  # Basic RAG: dense similarity only
+    # "similarity" = dense top-k (the baseline). "mmr" = maximal marginal relevance, used only by
+    # the Phase 3.1 control B2 (docs/PHASE-3.1-DESIGN.md).
+    search_type: Literal["similarity", "mmr"] = "similarity"
+    fetch_k: int | None = Field(default=None, ge=1, le=200)  # MMR candidate pool; MMR only
     embedding_dimension: int = Field(ge=1)
     qdrant: QdrantSettings
+
+    @model_validator(mode="after")
+    def _fetch_k_only_for_mmr(self) -> RetrievalSettings:
+        if self.search_type == "mmr":
+            if self.fetch_k is None or self.fetch_k < self.top_k:
+                raise ValueError("search_type 'mmr' needs fetch_k >= top_k")
+        elif self.fetch_k is not None:
+            raise ValueError("fetch_k is only used with search_type 'mmr'")
+        return self
+
+    def search_kwargs(self) -> dict[str, int]:
+        kwargs = {"k": self.top_k}
+        if self.search_type == "mmr":
+            kwargs["fetch_k"] = self.fetch_k
+        return kwargs
 
 
 class ChunkingSettings(_Strict):
@@ -57,12 +75,20 @@ class ChunkingSettings(_Strict):
     merge_peers: bool = True
 
 
+class DecompositionSettings(_Strict):
+    """Phase 3.1 query decomposition (docs/PHASE-3.1-DESIGN.md)."""
+
+    max_sub_questions: int = Field(default=3, ge=1, le=3)  # includes the original question
+    max_context_chunks: int = Field(default=8, ge=1, le=50)  # cap after the merge
+
+
 class RAGSettings(_Strict):
     generator: LLMSettings
     embedding: EmbeddingSettings
     reranker: None = None  # Basic RAG has no reranker; later phases change this
     retrieval: RetrievalSettings
     chunking: ChunkingSettings
+    decomposition: DecompositionSettings | None = None  # Phase 3.1 graph only
 
 
 class SettingsError(ValueError):

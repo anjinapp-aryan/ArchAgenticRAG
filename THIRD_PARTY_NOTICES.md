@@ -15,6 +15,7 @@ Per-file details are in `data/corpus/peps/MANIFEST.json`.
 |---|---|---|---|---|
 | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) `examples/rag/langgraph_crag.ipynb`, `langgraph_agentic_rag.ipynb` | MIT, Copyright (c) LangChain, Inc. | `4be610c6bc7c042038f671d6def9f523ca385a69` | The retrieve → generate node structure and the context formatting | `src/archagenticrag/graphs/basic_rag.py` |
 | [GiovanniPasq/agentic-rag-for-dummies](https://github.com/GiovanniPasq/agentic-rag-for-dummies) `project/db/vector_db_manager.py` | MIT, Copyright (c) 2025 Giovanni Pasqualino | `2461e5251c6b9a6be71d13176ab43301f3c0a068` | Refusing a Qdrant collection whose vector size does not match the embedding model | `src/archagenticrag/rag/vector_store.py` |
+| [GiovanniPasq/agentic-rag-for-dummies](https://github.com/GiovanniPasq/agentic-rag-for-dummies) `project/rag_agent/schemas.py`, `prompts.py`, `edges.py` | MIT, Copyright (c) 2025 Giovanni Pasqualino | `394c4f7` | Phase 3.1: the sub-question schema shape (`questions: list[str]`), the rules "split only truly separate information needs, max 3 / preserve names exactly / do not add facts", and one LangGraph `Send` per sub-question. Clarification branch, agent loop and per-sub-question answering not used. | `src/archagenticrag/graphs/decompose_rag.py` |
 
 Both projects are MIT licensed. Their notice is reproduced here:
 
