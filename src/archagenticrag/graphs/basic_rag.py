@@ -52,9 +52,19 @@ def format_documents(documents: list[Document]) -> str:
     return "\n\n".join(blocks)
 
 
+HYBRID_METHOD = "hybrid(dense+bm25,rrf)"
+
+
 def make_retriever(store: Any, settings: RAGSettings):
-    """Retriever from the retrieval settings. The baseline is ``similarity`` with ``k=top_k``."""
-    return store.as_retriever(search_type=settings.retrieval.search_type, search_kwargs=settings.retrieval.search_kwargs())
+    """Retriever from the retrieval settings. The baseline is ``similarity`` with ``k=top_k``.
+
+    In hybrid mode (Experiment 02) the store itself runs dense + BM25 and Qdrant RRF; the
+    retriever is the same, only labelled so retrieval traces name the method.
+    """
+    retriever = store.as_retriever(search_type=settings.retrieval.search_type, search_kwargs=settings.retrieval.search_kwargs())
+    if settings.retrieval.mode == "hybrid":
+        return retriever.with_config(metadata={"retrieval_method": HYBRID_METHOD})
+    return retriever
 
 
 def build_graph(
@@ -63,8 +73,12 @@ def build_graph(
     client: Any = None,
     embeddings: Embeddings | None = None,
     llm: BaseChatModel | None = None,
+    sparse_embeddings: Any = None,
 ):
     """Build the Basic RAG graph from the `system` config section.
+
+    With ``system.retrieval.mode: hybrid`` (Experiment 02) the same graph reads a hybrid
+    collection; nothing else changes. ``sparse_embeddings`` can be injected (tests).
 
     ``client``, ``embeddings`` and ``llm`` can be injected (tests); by default they are
     built from the settings: a Qdrant server client, FastEmbed embeddings, and a chat model
@@ -82,10 +96,13 @@ def build_graph(
     client = client if client is not None else make_client(settings.retrieval.qdrant)
     embeddings = embeddings if embeddings is not None else make_embeddings(settings.embedding)
     llm = llm if llm is not None else chat_model(
-        settings.generator.provider, settings.generator.model, settings.generator.temperature
+        settings.generator.provider,
+        settings.generator.model,
+        settings.generator.temperature,
+        strategy=settings.provider_strategy,
     )
 
-    store, index_meta = open_store(client, settings, embeddings)
+    store, index_meta = open_store(client, settings, embeddings, sparse_embeddings)
     retriever = make_retriever(store, settings)
     answer_chain = PROMPT | llm | StrOutputParser()
 

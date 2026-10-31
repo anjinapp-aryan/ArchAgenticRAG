@@ -30,6 +30,10 @@ eval = [
     "langchain-community>=0.3.31,<0.4",
     "langfuse==4.16.0",
     "openai>=2,<4",
+    # Phase 3.0 ranking metrics (Recall@K, MRR, nDCG): trec_eval via ir_measures.
+    # Verified 2026-10-27 (docs/PHASE-3.0-EXPERIMENT-LAB.md, appendix A).
+    "ir-measures==0.4.3",
+    "pytrec-eval-terrier==0.5.11",
 ]
 
 [dependency-groups]

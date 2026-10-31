@@ -11,6 +11,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from archagenticrag.evaluation.providers import PROVIDERS
+from archagenticrag.providers import ProviderStrategy
 
 MetricName = Literal[
     "faithfulness",
@@ -86,11 +87,13 @@ class SystemConfig(_Strict):
     retrieval: dict = Field(default_factory=dict)  # e.g. {top_k: 4, search_type: similarity}
     chunking: dict = Field(default_factory=dict)  # e.g. {strategy: ..., chunk_size: ..., chunk_overlap: ...}
     decomposition: dict | None = None  # Phase 3.1 query decomposition; validated by rag.settings
+    provider_strategy: ProviderStrategy | None = None  # generator provider pool (docs/MULTI-PROVIDER-FALLBACK.md)
 
 
 class JudgeConfig(_Strict):
     llm: ModelRef
     embedding: ModelRef  # needed by Ragas AnswerRelevancy
+    provider_strategy: ProviderStrategy | None = None  # judge LLM provider pool; embeddings are not routed
 
 
 class Pricing(_Strict):
@@ -135,6 +138,10 @@ class EvalConfig(_Strict):
             del data["system"]["decomposition"]
         if not data["target"].get("record_keys"):
             del data["target"]["record_keys"]
+        if data["system"].get("provider_strategy") is None:
+            del data["system"]["provider_strategy"]
+        if data["judge"].get("provider_strategy") is None:
+            del data["judge"]["provider_strategy"]
         canonical = json.dumps(data, sort_keys=True)
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 

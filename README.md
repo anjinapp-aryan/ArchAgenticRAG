@@ -9,7 +9,9 @@ A learning and portfolio project for Agentic RAG. The rule is to never reinvent 
 | 0 | Ecosystem research and architecture | Done: [docs/phase-0-research.md](docs/phase-0-research.md) |
 | 1 | Foundation and Basic RAG | Done, pending review: Docling → FastEmbed → Qdrant → LangGraph `retrieve → generate`. [docs/PHASE-1-IMPLEMENTATION.md](docs/PHASE-1-IMPLEMENTATION.md), [docs/PHASE-1-REPORT.md](docs/PHASE-1-REPORT.md) |
 | 2 | Evaluation harness and baseline | Done: baseline measured on 42/42 (pass 27/42; abstention 6/6; clarification 0/5; multi-document recall 0.64). [docs/PHASE-2-BASELINE-RESULTS.md](docs/PHASE-2-BASELINE-RESULTS.md) |
-| 3.1 | Query decomposition (multi-query retrieval) | **Designed, not implemented**, awaiting review: [docs/PHASE-3.1-DESIGN.md](docs/PHASE-3.1-DESIGN.md) |
+| 3.1 | Query decomposition (multi-query retrieval) | Implemented; answer judging in progress via daily resume: [docs/PHASE-3.1-DESIGN.md](docs/PHASE-3.1-DESIGN.md) |
+| 3.0 | Experiment lab infrastructure | Done, pending review: relevance labels, Recall@K / MRR / nDCG, `benchmark.py --all`, retrieval instrumentation, deferred judging, Langfuse tracing hook. [docs/PHASE-3.0-EXPERIMENT-LAB.md](docs/PHASE-3.0-EXPERIMENT-LAB.md) |
+| — | Multi-provider free-tier fallback (opt-in) | Done, pending review: generator and judge provider pools, bounded retry, audited per-request provider identity. [docs/MULTI-PROVIDER-FALLBACK.md](docs/MULTI-PROVIDER-FALLBACK.md) |
 
 ## Layout
 
@@ -17,7 +19,8 @@ A learning and portfolio project for Agentic RAG. The rule is to never reinvent 
 data/corpus/peps/      13 public-domain / CC0 Python PEPs (evaluation corpus) + MANIFEST.json
 eval/datasets/         golden QA sets (versioned)
 eval/configs/          versioned evaluation run configs
-eval/runners/          CLI entry points (validate, sync to Langfuse, run)
+eval/runners/          CLI entry points (validate, sync to Langfuse, run, resume, build qrels, benchmark)
+eval/experiments.yaml  experiment registry (01-11 + controls)
 eval/results/          one folder per run (manifest, per-item records, summary)
 src/archagenticrag/    package code: rag/ (ingestion, Qdrant), graphs/ (LangGraph), evaluation/ (glue)
 tests/                 offline unit tests; integration/ needs Qdrant, live needs API keys

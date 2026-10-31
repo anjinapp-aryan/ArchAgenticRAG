@@ -1,5 +1,9 @@
 """Run one evaluation: Langfuse ``run_experiment`` drives the loop, Ragas scores each item.
 
+With ``judge=False`` the system runs and its retrieval is recorded, but no Ragas metric is
+scored: every item stays pending, and ``resume_eval.py`` judges it later (judge capacity is
+the lab's bottleneck; retrieval ranking metrics need no judge).
+
 Langfuse logs and drops items whose task raises, and swallows evaluator exceptions.
 For a trustworthy baseline both wrappers below catch their own errors and record them,
 and the run fails if any golden item is missing from the results.
@@ -16,9 +20,10 @@ from typing import Any
 from archagenticrag.evaluation import analysis, persistence
 from archagenticrag.evaluation.config import load_config
 from archagenticrag.evaluation.dataset import load_dataset, verify_traceability
-from archagenticrag.evaluation.langfuse_sync import item_metadata, make_client
+from archagenticrag.evaluation.langfuse_sync import item_metadata, langchain_callbacks, make_client
 from archagenticrag.evaluation.target import build_target, run_target
-from archagenticrag.evaluation.tracking import build_manifest
+from archagenticrag.evaluation.tracking import build_manifest, describe_provider_strategy
+from archagenticrag.provider_fallback import collect_provider_calls
 
 
 class RunError(RuntimeError):
@@ -33,6 +38,7 @@ def run_evaluation(
     target: Any = None,
     scorer: Any = None,
     langfuse_client: Any = None,
+    judge: bool = True,
 ) -> Path:
     """Execute a run and return its results directory.
 
@@ -61,12 +67,16 @@ def run_evaluation(
         target = build_target(config)
     # Graphs may describe what they run on (e.g. the Qdrant index metadata); record it verbatim.
     manifest["target_metadata"] = getattr(target, "eval_metadata", None)
-    if scorer is None:
+    manifest["judge_deferred"] = not judge
+    manifest["provider_strategy"] = describe_provider_strategy(config)
+    if scorer is None and judge:
         from archagenticrag.evaluation.metrics import RagasScorer
 
         scorer = RagasScorer.from_judge_config(config.metrics, config.judge)
     if langfuse_client is None:
         langfuse_client = make_client(config.langfuse.enabled)
+    # Graph, retrieval and generation spans nest under each item's Langfuse trace (enabled only).
+    tracing = langchain_callbacks(config.langfuse.enabled)
 
     golden = {item.id: item for item in dataset.items}
     records: dict[str, dict[str, Any]] = {}
@@ -77,7 +87,7 @@ def run_evaluation(
     async def task(*, item: Any, **_: Any) -> dict[str, Any]:
         meta = item["metadata"] if isinstance(item, dict) else item.metadata
         g = golden[golden_id(meta)]
-        res = await run_target(target, config.target, g.question)
+        res = await run_target(target, config.target, g.question, extra_callbacks=tracing)
         records[g.id] = {
             "id": g.id,
             "category": g.category.value,
@@ -96,9 +106,13 @@ def run_evaluation(
             "error": res.error,
             "metrics": {},
             "retrieval": analysis.retrieval_checks(g, res.contexts, res.context_doc_ids),
+            "retrieval_results": res.retrieval_results,
+            "retrieval_calls": res.retrieval_calls,
         }
         if config.target.record_keys:
             records[g.id]["recorded"] = res.recorded
+        if res.provider_calls:
+            records[g.id]["provider_calls"] = res.provider_calls
         return {"answer": res.answer, "contexts": res.contexts, "error": res.error}
 
     async def ragas_evaluator(*, metadata: Any = None, **_: Any) -> list[Any]:
@@ -106,13 +120,17 @@ def run_evaluation(
 
         g = golden[golden_id(metadata)]
         record = records[g.id]
-        if record["error"]:
+        if record["error"] or not judge:
             return []
         try:
-            outcomes = await scorer.score(g, record["answer"], record["contexts"])
+            with collect_provider_calls() as judge_calls:
+                outcomes = await scorer.score(g, record["answer"], record["contexts"])
         except Exception as exc:  # scorer-level failure: record, keep going
             record["metrics"] = {"_scorer": {"value": None, "reason": None, "error": f"{type(exc).__name__}: {exc}"}}
             return []
+        finally:
+            if judge_calls:
+                record["judge_provider_calls"] = judge_calls
         record["metrics"] = {o.name: o.to_dict() for o in outcomes}
         return [Evaluation(name=o.name, value=o.value, comment=o.reason) for o in outcomes if o.value is not None]
 

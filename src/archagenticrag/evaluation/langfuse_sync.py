@@ -11,17 +11,40 @@ from typing import Any
 from archagenticrag.evaluation.dataset import GoldenDataset, GoldenItem
 
 
+class LangfuseUnavailable(RuntimeError):
+    pass
+
+
 def make_client(enabled: bool) -> Any:
     from langfuse import Langfuse
 
     if enabled:
-        # Reads LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST from the environment.
+        # Reads LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST (or LANGFUSE_BASE_URL)
+        # from the environment. An enabled run fails here, before any model call, rather than
+        # running untraced.
         client = Langfuse()
-        if not client.auth_check():
-            raise RuntimeError("Langfuse auth_check failed: check LANGFUSE_* environment variables and server")
+        try:
+            ok = client.auth_check()
+        except Exception as exc:  # unreachable server, bad keys: the SDK raises its own types
+            raise LangfuseUnavailable(f"Langfuse server not usable: {type(exc).__name__}: {exc}") from exc
+        if not ok:
+            raise LangfuseUnavailable("Langfuse auth_check failed: check LANGFUSE_* environment variables and server")
         return client
     # Offline mode: run_experiment still orchestrates the run locally, nothing is sent.
     return Langfuse(public_key="offline", secret_key="offline", host="http://127.0.0.1:9", tracing_enabled=False)
+
+
+def langchain_callbacks(enabled: bool) -> list[Any]:
+    """Langfuse's LangChain callback when tracing is enabled, else nothing (no import, no network).
+
+    The handler uses the client ``make_client`` initialised and attaches graph, retriever and
+    LLM spans to the current trace, i.e. the per-item trace ``run_experiment`` opens.
+    """
+    if not enabled:
+        return []
+    from langfuse.langchain import CallbackHandler
+
+    return [CallbackHandler()]
 
 
 def item_metadata(item: GoldenItem, dataset: GoldenDataset) -> dict[str, Any]:

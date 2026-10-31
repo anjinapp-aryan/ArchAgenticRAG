@@ -46,6 +46,8 @@ Both projects are MIT licensed. Their notice is reproduced here:
 | ragas 0.4.3 | Apache-2.0 | Evaluation metrics |
 | langfuse 4.16.0 (Python SDK) | MIT | Experiment runner, datasets |
 | openai | Apache-2.0 | OpenAI-compatible client for the Ragas judge |
+| ir-measures 0.4.3 | Apache-2.0 | Ranking metrics (Recall@K, MRR, nDCG) |
+| pytrec-eval-terrier 0.5.11 | MIT | trec_eval backend of ir-measures |
 | pydantic, PyYAML | MIT | Config and schema validation |
 | python-dotenv | BSD-3-Clause | Loads `.env` |
 
@@ -55,3 +57,5 @@ Both projects are MIT licensed. Their notice is reproduced here:
 |---|---|
 | Qdrant server (`qdrant/qdrant:v1.19.1` Docker image) | Apache-2.0 |
 | Groq, Google Gemini and NVIDIA NIM APIs | Provider terms of service |
+| Cerebras Cloud, SambaNova Cloud, Cloudflare Workers AI, OpenRouter APIs (optional fallback providers, OpenAI-compatible endpoints; no SDK added) | Provider terms of service |
+| Langfuse server (optional, self-hosted from the official `langfuse/langfuse` docker compose; not vendored) | MIT (core) |

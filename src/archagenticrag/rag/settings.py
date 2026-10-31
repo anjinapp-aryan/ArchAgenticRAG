@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from archagenticrag.providers import PROVIDERS
+from archagenticrag.providers import PROVIDERS, ProviderStrategy
 
 
 class _Strict(BaseModel):
@@ -43,7 +43,20 @@ class QdrantSettings(_Strict):
     api_key_env: str | None = None  # only for a secured / cloud Qdrant
 
 
+class SparseSettings(_Strict):
+    """Experiment 02 sparse branch: FastEmbed BM25 term weights; Qdrant applies IDF at query time."""
+
+    provider: Literal["local"] = "local"  # FastEmbed SparseTextEmbedding, CPU, no key
+    model: Literal["Qdrant/bm25"] = "Qdrant/bm25"
+    modifier: Literal["idf"] = "idf"  # required by Qdrant/bm25 (fastembed Bm25 docstring)
+
+
 class RetrievalSettings(_Strict):
+    # "dense" = the baseline. "hybrid" = Experiment 02: dense + BM25, each branch limited to top_k,
+    # fused by Qdrant RRF to top_k (langchain-qdrant RetrievalMode.HYBRID).
+    mode: Literal["dense", "hybrid"] = "dense"
+    sparse: SparseSettings | None = None  # hybrid only
+    fusion: Literal["rrf"] | None = None  # hybrid only; Qdrant FusionQuery(Fusion.RRF)
     top_k: int = Field(ge=1, le=50)
     # "similarity" = dense top-k (the baseline). "mmr" = maximal marginal relevance, used only by
     # the Phase 3.1 control B2 (docs/PHASE-3.1-DESIGN.md).
@@ -51,6 +64,17 @@ class RetrievalSettings(_Strict):
     fetch_k: int | None = Field(default=None, ge=1, le=200)  # MMR candidate pool; MMR only
     embedding_dimension: int = Field(ge=1)
     qdrant: QdrantSettings
+
+    @model_validator(mode="after")
+    def _hybrid_needs_sparse_and_fusion(self) -> RetrievalSettings:
+        if self.mode == "hybrid":
+            if self.sparse is None or self.fusion is None:
+                raise ValueError("retrieval.mode 'hybrid' needs retrieval.sparse and retrieval.fusion")
+            if self.search_type != "similarity":
+                raise ValueError("retrieval.mode 'hybrid' supports only search_type 'similarity'")
+        elif self.sparse is not None or self.fusion is not None:
+            raise ValueError("retrieval.sparse and retrieval.fusion are only used with mode 'hybrid'")
+        return self
 
     @model_validator(mode="after")
     def _fetch_k_only_for_mmr(self) -> RetrievalSettings:
@@ -89,6 +113,7 @@ class RAGSettings(_Strict):
     retrieval: RetrievalSettings
     chunking: ChunkingSettings
     decomposition: DecompositionSettings | None = None  # Phase 3.1 graph only
+    provider_strategy: ProviderStrategy | None = None  # generator provider pool; None = single provider
 
 
 class SettingsError(ValueError):

@@ -1,0 +1,50 @@
+# Experiment registry of the RAG experiment lab (docs/PHASE-3.0-EXPERIMENT-LAB.md).
+# Runs are matched to experiments by their config's `run_name`. An experiment with no run is
+# reported as NOT RUN, never as zero. Only the registry is edited here; run results are not.
+registry_version: 1
+
+experiments:
+  - id: "01"
+    name: Basic RAG
+    run_names: [baseline-basic-rag]
+    config: eval/configs/baseline-basic-rag.yaml
+    report: docs/PHASE-2-BASELINE-RESULTS.md
+    # Finalized with 6 recorded judge gaps by user decision (docs/PHASE-2-BASELINE-RESULTS.md).
+    final_runs: [20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9]
+  - id: "02"
+    name: Hybrid retrieval (dense + BM25, RRF)
+    run_names: [exp02-hybrid-bm25]
+    config: eval/configs/exp02-hybrid-bm25.yaml
+    report: docs/EXPERIMENT-02-HYBRID-RETRIEVAL.md
+  - id: "03"
+    name: Reranking
+  - id: "04"
+    name: Query rewrite
+  - id: "05"
+    name: Multi-query (query decomposition, Phase 3.1)
+    run_names: [phase3-1-decomposition]
+    config: eval/configs/phase3-1-decomposition.yaml
+    report: docs/PHASE-3.1-DESIGN.md
+  - id: "06"
+    name: CRAG
+  - id: "07"
+    name: Adaptive RAG
+  - id: "08"
+    name: Self-RAG
+  - id: "09"
+    name: Agentic RAG
+  - id: "10"
+    name: GraphRAG
+  - id: "11"
+    name: Multi-agent RAG
+
+  # Controls: same system as 01 with one retrieval setting changed (docs/PHASE-3.1-DESIGN.md).
+  - id: 05-B1
+    name: "Control B1: Basic RAG, top_k 8"
+    role: control
+    run_names: [control-b1-topk8]
+  - id: 05-B2
+    name: "Control B2: Basic RAG, MMR (fetch_k 20)"
+    role: control
+    run_names: [control-b2-mmr]
+    answer_eval: skipped        # user decision 2026-10-27: retrieval-level analysis only

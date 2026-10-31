@@ -1,8 +1,8 @@
 """Adapter for the system under test (any LangGraph graph / LangChain runnable).
 
-Token usage comes from LangChain's own ``UsageMetadataCallbackHandler``. The only
-custom callback here times retriever calls and counts LLM calls, which LangChain
-does not aggregate for us.
+Token usage comes from LangChain's own ``UsageMetadataCallbackHandler``. The custom
+callbacks time retriever calls and count LLM calls, which LangChain does not aggregate
+for us, and record every retriever call's ranked results (``retrieval_trace``).
 """
 
 from __future__ import annotations
@@ -10,12 +10,13 @@ from __future__ import annotations
 import importlib
 import time
 from dataclasses import dataclass, field
-from pathlib import PurePath
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler, UsageMetadataCallbackHandler
 
 from archagenticrag.evaluation.config import EvalConfig, TargetRef
+from archagenticrag.evaluation.retrieval_trace import RetrievalRecorder, doc_id_of
+from archagenticrag.provider_fallback import collect_provider_calls
 
 
 class TargetError(RuntimeError):
@@ -97,13 +98,9 @@ class TargetResult:
     usage: dict[str, dict[str, int]] = field(default_factory=dict)  # model -> token counts
     error: str | None = None
     recorded: dict[str, Any] = field(default_factory=dict)  # TargetRef.record_keys -> output values
-
-
-def _doc_id(metadata: dict) -> str | None:
-    for key in ("doc_id", "source", "file_path"):
-        if metadata.get(key):
-            return PurePath(str(metadata[key])).stem  # "data/corpus/peps/pep-0484.rst" -> "pep-0484"
-    return None
+    retrieval_results: list[dict[str, Any]] = field(default_factory=list)  # final ranked contexts
+    retrieval_calls: list[dict[str, Any]] = field(default_factory=list)  # every retriever call
+    provider_calls: list[dict[str, Any]] = field(default_factory=list)  # fallback-transport records (fallback mode only)
 
 
 def _normalize_contexts(raw: Any) -> tuple[list[str], list[str | None]]:
@@ -115,7 +112,7 @@ def _normalize_contexts(raw: Any) -> tuple[list[str], list[str | None]]:
             ids.append(None)
         elif hasattr(ctx, "page_content"):  # langchain Document
             texts.append(ctx.page_content)
-            ids.append(_doc_id(getattr(ctx, "metadata", {}) or {}))
+            ids.append(doc_id_of(getattr(ctx, "metadata", {}) or {}))
         else:
             raise TargetError(f"unsupported context type {type(ctx).__name__}")
     return texts, ids
@@ -125,24 +122,28 @@ async def run_target(target: Any, ref: TargetRef, question: str, extra_callbacks
     """Invoke the system once. Never raises: failures are returned in ``error``."""
     usage = UsageMetadataCallbackHandler()
     stats = _CallStats()
-    callbacks = [usage, stats, *(extra_callbacks or [])]
+    recorder = RetrievalRecorder()
+    callbacks = [usage, stats, recorder, *(extra_callbacks or [])]
     start = time.perf_counter()
-    try:
-        if hasattr(target, "ainvoke"):
-            output = await target.ainvoke({ref.input_key: question}, config={"callbacks": callbacks})
-        else:
-            output = target.invoke({ref.input_key: question}, config={"callbacks": callbacks})
-        latency = time.perf_counter() - start
-        answer = output[ref.answer_key]
-        if not isinstance(answer, str):
-            answer = getattr(answer, "content", None) or str(answer)
-        contexts, ids = _normalize_contexts(output.get(ref.contexts_key))
-        recorded = {key: output.get(key) for key in ref.record_keys}
-        error = None
-    except Exception as exc:
-        latency = time.perf_counter() - start
-        answer, contexts, ids, recorded = "", [], [], {}
-        error = f"{type(exc).__name__}: {exc}"
+    with collect_provider_calls() as provider_calls:  # filled by the fallback transport, if any
+        try:
+            if hasattr(target, "ainvoke"):
+                output = await target.ainvoke({ref.input_key: question}, config={"callbacks": callbacks})
+            else:
+                output = target.invoke({ref.input_key: question}, config={"callbacks": callbacks})
+            latency = time.perf_counter() - start
+            answer = output[ref.answer_key]
+            if not isinstance(answer, str):
+                answer = getattr(answer, "content", None) or str(answer)
+            raw_contexts = output.get(ref.contexts_key)
+            contexts, ids = _normalize_contexts(raw_contexts)
+            recorded = {key: output.get(key) for key in ref.record_keys}
+            retrieval_results = recorder.final_results(list(raw_contexts or []))
+            error = None
+        except Exception as exc:
+            latency = time.perf_counter() - start
+            answer, contexts, ids, recorded, retrieval_results = "", [], [], {}, []
+            error = f"{type(exc).__name__}: {exc}"
     return TargetResult(
         answer=answer,
         contexts=contexts,
@@ -154,4 +155,7 @@ async def run_target(target: Any, ref: TargetRef, question: str, extra_callbacks
         usage={model: dict(meta) for model, meta in usage.usage_metadata.items()},
         error=error,
         recorded=recorded,
+        retrieval_results=retrieval_results,
+        retrieval_calls=recorder.calls,
+        provider_calls=provider_calls,
     )
