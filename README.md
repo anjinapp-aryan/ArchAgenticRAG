@@ -27,7 +27,8 @@ eval/results/          one folder per run (manifest, per-item records, summary)
 src/archagenticrag/    package code: rag/ (ingestion, Qdrant), graphs/ (LangGraph), evaluation/ (glue)
 tests/                 offline unit tests; integration/ needs Qdrant, live needs API keys
 docker-compose.yml     Qdrant server
-docs/                  research, ADRs, learning log
+docs/                  research, ADRs, learning log, experiment reports
+AGENTS.md, CLAUDE.md   rules for AI coding agents; skills in .claude/skills/, guide in docs/ai-development/
 ```
 
 ## Quick start
