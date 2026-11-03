@@ -57,7 +57,9 @@ class RetrievalSettings(_Strict):
     mode: Literal["dense", "hybrid"] = "dense"
     sparse: SparseSettings | None = None  # hybrid only
     fusion: Literal["rrf"] | None = None  # hybrid only; Qdrant FusionQuery(Fusion.RRF)
-    top_k: int = Field(ge=1, le=50)
+    top_k: int = Field(ge=1, le=50)  # chunks the generator receives
+    # Experiment 03: candidates fetched before reranking down to top_k. Only with system.reranker.
+    candidate_k: int | None = Field(default=None, ge=1, le=200)
     # "similarity" = dense top-k (the baseline). "mmr" = maximal marginal relevance, used only by
     # the Phase 3.1 control B2 (docs/PHASE-3.1-DESIGN.md).
     search_type: Literal["similarity", "mmr"] = "similarity"
@@ -86,10 +88,18 @@ class RetrievalSettings(_Strict):
         return self
 
     def search_kwargs(self) -> dict[str, int]:
-        kwargs = {"k": self.top_k}
+        kwargs = {"k": self.candidate_k or self.top_k}
         if self.search_type == "mmr":
             kwargs["fetch_k"] = self.fetch_k
         return kwargs
+
+
+class RerankerSettings(_Strict):
+    """Experiment 03 cross-encoder: FastEmbed ``TextCrossEncoder``, CPU, no key."""
+
+    provider: Literal["local"]
+    model: str = Field(min_length=1)
+    temperature: None = None  # accepted for config symmetry, never used
 
 
 class ChunkingSettings(_Strict):
@@ -109,11 +119,24 @@ class DecompositionSettings(_Strict):
 class RAGSettings(_Strict):
     generator: LLMSettings
     embedding: EmbeddingSettings
-    reranker: None = None  # Basic RAG has no reranker; later phases change this
+    reranker: RerankerSettings | None = None  # Experiment 03; Basic RAG has none
     retrieval: RetrievalSettings
     chunking: ChunkingSettings
     decomposition: DecompositionSettings | None = None  # Phase 3.1 graph only
     provider_strategy: ProviderStrategy | None = None  # generator provider pool; None = single provider
+
+    @model_validator(mode="after")
+    def _candidate_k_only_with_reranker(self) -> RAGSettings:
+        retrieval = self.retrieval
+        if self.reranker is None:
+            if retrieval.candidate_k is not None:
+                raise ValueError("retrieval.candidate_k is only used with system.reranker")
+            return self
+        if retrieval.candidate_k is None or retrieval.candidate_k <= retrieval.top_k:
+            raise ValueError("system.reranker needs retrieval.candidate_k > retrieval.top_k")
+        if retrieval.search_type != "similarity":
+            raise ValueError("system.reranker supports only search_type 'similarity'")
+        return self
 
 
 class SettingsError(ValueError):

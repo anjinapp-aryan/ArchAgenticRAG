@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from archagenticrag.evaluation.config import load_config
 from archagenticrag.evaluation.persistence import read_run
 from archagenticrag.evaluation.pricing import PriceBook, run_cost
-from archagenticrag.evaluation.ranking import DEFAULT_CUTOFFS, run_ranking
+from archagenticrag.evaluation.ranking import CANDIDATE_CUTOFFS, DEFAULT_CUTOFFS, candidate_view, run_ranking
 from archagenticrag.evaluation.relevance import load_qrels, qrels_path
 from archagenticrag.evaluation.resume import pending
 
@@ -323,6 +323,9 @@ def compare(
             "paired_items": sorted(paired_ids),
             "qrels_collection": qrels["chunk_set"]["collection"],
         }
+        stage = _candidate_stage(run.items, qrels, paired_ids, paired, cutoffs, (row.get("retrieval_config") or {}).get("top_k"))
+        if stage:
+            row["ranking"]["candidate_stage"] = stage
 
     base = per_query.get(baseline_id) if baseline_id else None
     for row in rows:
@@ -345,6 +348,34 @@ def compare(
         "paired_excluded_items": sorted(failed_ids),
         "rows": rows,
         "unregistered_runs": unregistered,
+    }
+
+
+def _candidate_stage(
+    items: list[dict[str, Any]],
+    qrels: dict[str, Any],
+    paired_ids: set[str],
+    final: dict[str, Any],
+    cutoffs: tuple[int, ...],
+    final_k: int | None,
+) -> dict[str, Any] | None:
+    """Separates candidate retrieval from reranking (Experiment 03), on the paired items:
+    ``pool`` = was the evidence anywhere in the candidates; ``top_k_without_rerank`` = the first
+    ``final_k`` candidates as they came; ``reranker_lift`` = final against that, per item."""
+    pool_view = candidate_view(items)
+    if pool_view is None or final_k is None:
+        return None
+    pool = run_ranking(pool_view, qrels, CANDIDATE_CUTOFFS, only=paired_ids)
+    head = run_ranking(candidate_view(items, final_k), qrels, cutoffs, only=paired_ids)
+    head_recall, pool_recall = head["chunk"]["mean"].get(f"recall@{final_k}"), pool["chunk"]["mean"]["recall@20"]
+    final_recall = final["chunk"]["mean"].get(f"recall@{final_k}")
+    return {
+        "final_k": final_k,
+        "pool": _drop_per_query(pool),
+        "top_k_without_rerank": _drop_per_query(head),
+        "reranker_lift": {"chunk": _paired_deltas(head["chunk"]["per_query"], final["chunk"]["per_query"])},
+        "reranker_efficiency": final_recall / pool_recall if final_recall is not None and pool_recall else None,
+        "top_k_recall_without_rerank": head_recall,
     }
 
 
@@ -415,6 +446,13 @@ def render_markdown(result: dict[str, Any], table_ks: tuple[int, ...] = (4, 8)) 
             notes.append(f"- {row['experiment_id']}: {row['status_detail']}")
         if row.get("ranking_unavailable"):
             notes.append(f"- {row['experiment_id']}: ranking unavailable: {row['ranking_unavailable']}")
+        stage = (row.get("ranking") or {}).get("candidate_stage")
+        if stage:
+            k, pool, head = stage["final_k"], stage["pool"]["chunk"]["mean"], stage["top_k_without_rerank"]["chunk"]["mean"]
+            notes.append(
+                f"- {row['experiment_id']}: candidate pool Recall@20 {pool['recall@20']:.3f}; first {k} candidates without reranking "
+                f"Recall@{k} {head[f'recall@{k}']:.3f}, MRR {head['mrr']:.3f}, nDCG@{k} {head[f'ndcg@{k}']:.3f}"
+            )
         if row.get("provider_mode") == "multi-provider fallback":
             used = "; ".join(f"{role}: " + ", ".join(f"{k} x{v}" for k, v in served.items()) for role, served in (row.get("providers_used") or {}).items())
             notes.append(f"- {row['experiment_id']}: MULTI-PROVIDER FALLBACK RUN, not a single-provider result ({used or 'no calls recorded'})")

@@ -55,16 +55,35 @@ def format_documents(documents: list[Document]) -> str:
 HYBRID_METHOD = "hybrid(dense+bm25,rrf)"
 
 
-def make_retriever(store: Any, settings: RAGSettings):
+def make_retriever(store: Any, settings: RAGSettings, encoder: Any = None):
     """Retriever from the retrieval settings. The baseline is ``similarity`` with ``k=top_k``.
 
     In hybrid mode (Experiment 02) the store itself runs dense + BM25 and Qdrant RRF; the
     retriever is the same, only labelled so retrieval traces name the method.
+
+    With a reranker (Experiment 03) that retriever fetches ``candidate_k`` chunks and LangChain's
+    ``ContextualCompressionRetriever`` reranks them down to ``top_k``, below the graph. Each
+    stage is labelled, so the trace separates the candidate ranking from the final one.
     """
     retriever = store.as_retriever(search_type=settings.retrieval.search_type, search_kwargs=settings.retrieval.search_kwargs())
-    if settings.retrieval.mode == "hybrid":
-        return retriever.with_config(metadata={"retrieval_method": HYBRID_METHOD})
-    return retriever
+    if settings.reranker is None:
+        if settings.retrieval.mode == "hybrid":
+            return retriever.with_config(metadata={"retrieval_method": HYBRID_METHOD})
+        return retriever
+
+    from langchain_classic.retrievers import ContextualCompressionRetriever
+
+    from archagenticrag.rag.rerank import FastEmbedRerank, make_encoder
+
+    method = HYBRID_METHOD if settings.retrieval.mode == "hybrid" else "dense"
+    compressor = FastEmbedRerank(
+        encoder=encoder if encoder is not None else make_encoder(settings.reranker.model), top_n=settings.retrieval.top_k
+    )
+    reranking = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=retriever.with_config(metadata={"retrieval_method": method, "retrieval_stage": "candidate"}),
+    )
+    return reranking.with_config(metadata={"retrieval_method": f"rerank({settings.reranker.model})", "retrieval_stage": "final"})
 
 
 def build_graph(
@@ -74,11 +93,13 @@ def build_graph(
     embeddings: Embeddings | None = None,
     llm: BaseChatModel | None = None,
     sparse_embeddings: Any = None,
+    encoder: Any = None,
 ):
     """Build the Basic RAG graph from the `system` config section.
 
     With ``system.retrieval.mode: hybrid`` (Experiment 02) the same graph reads a hybrid
-    collection; nothing else changes. ``sparse_embeddings`` can be injected (tests).
+    collection; nothing else changes. With ``system.reranker`` (Experiment 03) its retriever also
+    reranks. ``sparse_embeddings`` and the cross-``encoder`` can be injected (tests).
 
     ``client``, ``embeddings`` and ``llm`` can be injected (tests); by default they are
     built from the settings: a Qdrant server client, FastEmbed embeddings, and a chat model
@@ -103,7 +124,7 @@ def build_graph(
     )
 
     store, index_meta = open_store(client, settings, embeddings, sparse_embeddings)
-    retriever = make_retriever(store, settings)
+    retriever = make_retriever(store, settings, encoder)
     answer_chain = PROMPT | llm | StrOutputParser()
 
     def retrieve(state: RAGState, config: RunnableConfig) -> RAGState:
@@ -122,4 +143,6 @@ def build_graph(
     builder.add_edge("generate", END)
     graph = builder.compile(name="basic_rag")
     graph.eval_metadata = {"graph": "basic_rag", "index": index_meta, "prompt": SYSTEM_PROMPT}
+    if settings.reranker is not None:
+        graph.eval_metadata["reranker"] = {**settings.reranker.model_dump(), "candidate_k": settings.retrieval.candidate_k}
     return graph

@@ -91,3 +91,29 @@ async def test_run_target_failure_records_no_ranking():
 
     res = await run_target(RunnableLambda(boom), REF, "q")
     assert res.error and res.retrieval_results == [] and res.retrieval_calls == []
+
+
+async def test_nested_retriever_time_is_not_counted_twice():
+    import time
+
+    class Slow(BaseRetriever):
+        def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun) -> list[Document]:
+            time.sleep(0.1)
+            return [_doc("a#0")]
+
+    class Outer(BaseRetriever):
+        base: BaseRetriever
+
+        def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun) -> list[Document]:
+            return self.base.invoke(query, config={"callbacks": run_manager.get_child()})
+
+    outer = Outer(base=Slow())
+
+    async def graph(inputs: dict, config=None) -> dict:
+        return {"answer": "x", "documents": await outer.ainvoke(inputs["question"], config=config)}
+
+    res = await run_target(RunnableLambda(graph), REF, "q")
+    inner, whole = res.retrieval_calls  # the inner call closes first
+    assert inner["latency_s"] >= 0.1
+    # counted twice it would be inner + whole; counted once it is whole plus callback overhead
+    assert res.retrieval_latency_s < inner["latency_s"] + whole["latency_s"] - 0.05

@@ -10,7 +10,9 @@ example ``relevance_score`` from LangChain document compressors / rerankers). Pl
 ``VectorStoreRetriever`` similarity search does not, so ``score`` is ``None`` there:
 nothing is estimated. ``method`` is the retriever's own ``retrieval_method`` metadata
 when an experiment sets it (``retriever.with_config(metadata={"retrieval_method": "hybrid"})``),
-otherwise the retriever class and vector store LangChain reports.
+otherwise the retriever class and vector store LangChain reports. A retriever may also set
+``retrieval_stage`` metadata ("candidate" / "final"): final contexts then also record the rank and
+method they had in the candidate stage, so reranking can be told apart from candidate retrieval.
 """
 
 from __future__ import annotations
@@ -77,6 +79,7 @@ class RetrievalRecorder(BaseCallbackHandler):
         self._open[run_id] = {
             "query": query,
             "method": _method(name, metadata),
+            "retrieval_stage": (metadata or {}).get("retrieval_stage"),
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
             "run_id": str(run_id),
             "_start": time.perf_counter(),
@@ -111,4 +114,15 @@ class RetrievalRecorder(BaseCallbackHandler):
                 hit["method"] = source["method"]
                 if hit["score"] is None and source["score"] is not None:
                     hit["score"], hit["score_key"] = source["score"], source["score_key"]
+        candidates: dict[str, dict[str, Any]] = {}
+        stages = [c for c in self.calls if c.get("retrieval_stage") == "candidate"]
+        for call in stages:
+            for candidate in call["results"]:
+                if candidate["chunk_id"]:
+                    candidates.setdefault(candidate["chunk_id"], candidate)
+        if stages:
+            for hit in results:
+                candidate = candidates.get(hit["chunk_id"]) or {}
+                hit["candidate_rank"] = candidate.get("rank")
+                hit["candidate_method"] = candidate.get("method")
         return results

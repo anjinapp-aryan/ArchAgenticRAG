@@ -18,6 +18,7 @@ dependencies = [
     "fastembed==0.8.1",                 # local ONNX embeddings (via langchain-community FastEmbedEmbeddings)
     "docling-slim[convert-core,feat-chunking,format-html]==2.131.0",
     "docutils>=0.23,<0.24",             # PEP reader: reStructuredText -> HTML (Docling has no RST backend)
+    "langchain-classic==1.0.8",         # Experiment 03: ContextualCompressionRetriever (moved out of langchain 1.x)
 ]
 
 [project.optional-dependencies]

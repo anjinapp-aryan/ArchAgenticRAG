@@ -1,5 +1,7 @@
 # Experiment 03: Reranking — Reuse Audit and Design Review
 
+Implemented and measured 2026-11-03: see [EXPERIMENT-03-RERANKING.md](EXPERIMENT-03-RERANKING.md). bge-reranker-base missed the latency gate (p50 3.13 s), so the pre-registered fallback, jina-reranker-v1-tiny-en, was used. The text below is the audit as written.
+
 Status: audit and design only, 2026-10-29. Nothing is implemented. No production code, graph, collection, config or result changed. No model was downloaded except the re-download of the already-used `Qdrant/bm25` cache (section 14). No LLM or judge was called.
 
 ## 1. Executive summary

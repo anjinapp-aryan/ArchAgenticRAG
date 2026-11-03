@@ -322,3 +322,34 @@ async def test_real_graph_gemini_auth_error_stops_without_fallback(store, settin
     assert "AuthenticationError: Error code: 401" in res.error  # LangChain wraps it as OpenAIAuthenticationError
     assert mocked.providers_called() == ["gemini"]
     assert res.provider_calls[0]["outcome"] == "error" and res.provider_calls[0]["fallback_used"] is False
+
+
+# Experiment 03 on the real stack: real Qdrant, real hybrid retrieval, real cross-encoder (read-only).
+
+
+async def test_real_reranker_on_the_real_hybrid_index(client, embeddings):
+    from dotenv import load_dotenv
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    from archagenticrag.evaluation.config import TargetRef, load_config
+    from archagenticrag.evaluation.target import run_target
+    from archagenticrag.graphs.basic_rag import build_graph
+
+    from ..rag.conftest import REPO_ROOT
+
+    load_dotenv(REPO_ROOT / ".env")  # FASTEMBED_CACHE_PATH
+    system = load_config(REPO_ROOT / "eval/configs/exp03-hybrid-rerank.yaml").system.model_dump(mode="json")
+    if not client.collection_exists(system["retrieval"]["qdrant"]["collection"]):
+        pytest.skip("hybrid collection not indexed")
+    graph = build_graph(system=system, client=client, embeddings=embeddings, llm=FakeListChatModel(responses=["ok"]))
+    res = await run_target(graph, TargetRef(factory="archagenticrag.graphs.basic_rag:build_graph"), "What is the walrus operator?")
+
+    assert res.error is None
+    stages = {c["retrieval_stage"]: c for c in res.retrieval_calls}
+    assert len(stages["candidate"]["results"]) == 20 and len(stages["final"]["results"]) == 4
+    assert [r["rank"] for r in res.retrieval_results] == [1, 2, 3, 4]
+    scores = [r["score"] for r in res.retrieval_results]
+    assert all(s is not None for s in scores) and scores == sorted(scores, reverse=True)
+    candidates = {r["chunk_id"] for r in stages["candidate"]["results"]}
+    assert all(r["chunk_id"] in candidates and r["candidate_rank"] for r in res.retrieval_results)
+    assert len({r["chunk_id"] for r in res.retrieval_results}) == 4

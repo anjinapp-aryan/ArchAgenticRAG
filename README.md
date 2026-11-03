@@ -11,6 +11,8 @@ A learning and portfolio project for Agentic RAG. The rule is to never reinvent 
 | 2 | Evaluation harness and baseline | Done: baseline measured on 42/42 (pass 27/42; abstention 6/6; clarification 0/5; multi-document recall 0.64). [docs/PHASE-2-BASELINE-RESULTS.md](docs/PHASE-2-BASELINE-RESULTS.md) |
 | 3.1 | Query decomposition (multi-query retrieval) | Implemented; answer judging in progress via daily resume: [docs/PHASE-3.1-DESIGN.md](docs/PHASE-3.1-DESIGN.md) |
 | 3.0 | Experiment lab infrastructure | Done, pending review: relevance labels, Recall@K / MRR / nDCG, `benchmark.py --all`, retrieval instrumentation, deferred judging, Langfuse tracing hook. [docs/PHASE-3.0-EXPERIMENT-LAB.md](docs/PHASE-3.0-EXPERIMENT-LAB.md) |
+| 02 | Hybrid retrieval | Retrieval-level WIN; answers not judged: [docs/EXPERIMENT-02-HYBRID-RETRIEVAL.md](docs/EXPERIMENT-02-HYBRID-RETRIEVAL.md) |
+| 03 | Hybrid + cross-encoder reranking | Retrieval-level REGRESSION against 02; answers not judged: [docs/EXPERIMENT-03-RERANKING.md](docs/EXPERIMENT-03-RERANKING.md) |
 | — | Multi-provider free-tier fallback (opt-in) | Done, pending review: generator and judge provider pools, bounded retry, audited per-request provider identity. [docs/MULTI-PROVIDER-FALLBACK.md](docs/MULTI-PROVIDER-FALLBACK.md) |
 
 ## Layout

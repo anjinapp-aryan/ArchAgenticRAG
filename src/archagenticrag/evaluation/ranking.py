@@ -26,6 +26,7 @@ from typing import Any
 from archagenticrag.evaluation.relevance import text_sha256
 
 DEFAULT_CUTOFFS = (1, 3, 4, 5, 8, 10)  # 4 = baseline top_k, 8 = largest context list so far
+CANDIDATE_CUTOFFS = (4, 10, 20)  # candidate pool of Experiment 03
 
 
 def dedupe(ids: list[str]) -> list[str]:
@@ -46,6 +47,21 @@ def ranked_chunk_ids(record: dict[str, Any], catalog_by_sha: dict[str, str]) -> 
 def ranked_doc_ids(record: dict[str, Any]) -> list[str]:
     ids = [hit.get("doc_id") for hit in record["retrieval_results"]] if record.get("retrieval_results") else record.get("context_doc_ids") or []
     return dedupe([i or f"__unknown_{n}" for n, i in enumerate(ids)])
+
+
+def candidate_view(records: list[dict[str, Any]], limit: int | None = None) -> list[dict[str, Any]] | None:
+    """Records whose ranked list is the candidate stage (optionally its first ``limit`` chunks), so
+    ``run_ranking`` can score the pool before reranking. None if no record has a candidate stage."""
+    view: list[dict[str, Any]] = []
+    found = False
+    for record in records:
+        stage = next((c for c in record.get("retrieval_calls") or [] if c.get("retrieval_stage") == "candidate"), None)
+        if stage is None:
+            view.append({**record, "retrieval_results": [], "context_doc_ids": [], "contexts": []})
+            continue
+        found = True
+        view.append({**record, "retrieval_results": stage["results"][:limit]})
+    return view if found else None
 
 
 def measure_names(cutoffs: tuple[int, ...]) -> list[str]:

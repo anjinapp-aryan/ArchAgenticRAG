@@ -71,8 +71,10 @@ class _CallStats(BaseCallbackHandler):
     def on_llm_error(self, error, *, run_id, **kwargs):  # noqa: ANN001
         self._end_llm(run_id)
 
-    def on_retriever_start(self, serialized, query, *, run_id, **kwargs):  # noqa: ANN001
-        self._starts[run_id] = time.perf_counter()
+    def on_retriever_start(self, serialized, query, *, run_id, parent_run_id=None, **kwargs):  # noqa: ANN001
+        # A retriever nested in another (reranking) is already inside the outer one's time.
+        if parent_run_id not in self._starts:
+            self._starts[run_id] = time.perf_counter()
 
     def _end_retriever(self, run_id) -> None:  # noqa: ANN001
         start = self._starts.pop(run_id, None)

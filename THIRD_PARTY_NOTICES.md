@@ -26,6 +26,8 @@ Both projects are MIT licensed. Their notice is reproduced here:
 | Model | License | Source |
 |---|---|---|
 | BAAI/bge-small-en-v1.5 (embeddings, tokenizer) | MIT | https://huggingface.co/BAAI/bge-small-en-v1.5 (`5c38ec7`). The ONNX export is https://huggingface.co/Qdrant/bge-small-en-v1.5-onnx-Q (`aa8f8b0`, MIT). |
+| Qdrant/bm25 (Experiment 02 sparse model) | Apache-2.0 | https://huggingface.co/Qdrant/bm25 (`22b8d2a`) |
+| jinaai/jina-reranker-v1-tiny-en (Experiment 03 reranker) | Apache-2.0 | https://huggingface.co/jinaai/jina-reranker-v1-tiny-en (`aca45de`) |
 
 ## Libraries (used as dependencies, not copied)
 
@@ -47,6 +49,7 @@ Both projects are MIT licensed. Their notice is reproduced here:
 | langfuse 4.16.0 (Python SDK) | MIT | Experiment runner, datasets |
 | openai | Apache-2.0 | OpenAI-compatible client for the Ragas judge |
 | ir-measures 0.4.3 | Apache-2.0 | Ranking metrics (Recall@K, MRR, nDCG) |
+| langchain-classic 1.0.8, langchain-text-splitters | MIT | `ContextualCompressionRetriever` (Experiment 03) |
 | pytrec-eval-terrier 0.5.11 | MIT | trec_eval backend of ir-measures |
 | pydantic, PyYAML | MIT | Config and schema validation |
 | python-dotenv | BSD-3-Clause | Loads `.env` |
