@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\" pre-write", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\" pre-bash", "timeout": 60 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\" post-write", "timeout": 90 }
+        ]
+      }
+    ]
+  }
+}

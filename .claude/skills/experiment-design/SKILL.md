@@ -27,7 +27,7 @@ The idea; the control (default: experiment 01, then the best earlier experiment 
 10. **Deliverables.** Audit doc if needed, config, registry entry in `eval/experiments.yaml`, report using the section template.
 
 ## Required checks
-- The frozen artifacts in the register are untouched (verify, do not assume).
+- The frozen artifacts are untouched: `python .claude/hooks/guard.py verify` (register: `docs/ai-development/frozen-artifacts.json`).
 - The same generator, prompt, provider strategy and judge as the control.
 - Diagnostics are labelled and never replace the official run.
 

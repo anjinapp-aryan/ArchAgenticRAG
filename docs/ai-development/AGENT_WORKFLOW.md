@@ -34,6 +34,28 @@ Skip a gate only when its "applies" column says it does not; do not mark a gate 
 
 The proposed 0–8 model was kept: the repository's own phases (audit, implement, retrieval evaluation, answer evaluation, decision) map onto it without change.
 
+## Human approval boundaries
+
+Ask first (do not start) for the items below; everything else inside the approved scope proceeds without asking. "Enforced" means a hook in `.claude/hooks/guard.py` acts. The hook has two strengths:
+
+- **deny** blocks the call in every permission mode (verified live on 2026-11-03).
+- **ask** prompts the user in normal modes, but in a bypass-permissions, non-interactive session it was approved automatically (also verified live). Treat an `ask` as advisory in that mode.
+
+For that reason irreversible targets are denied, not asked: run results (`eval/results`, gitignored, one copy) and ingestion into an existing collection. The user can unlock them by setting `ARCHAGENTICRAG_ALLOW_DESTRUCTIVE=1` in the environment before starting Claude Code; an agent cannot set it from inside a tool call.
+
+| Ask the user before | Enforced |
+|---|---|
+| Changing the baseline, an earlier experiment's config, the golden set, the corpus or qrels | yes: write guard and Bash guard ask |
+| Changing or deleting run results; ingestion into an existing collection | yes: deny (user override only) |
+| Pushing to `main`, force-pushing, `reset --hard`, `clean -f`, discarding all changes | yes: ask or deny |
+| Committing with a leaked key or a changed frozen artifact | yes: deny |
+| A major architecture change, a breaking interface change, or a change that touches production | no |
+| A new paid dependency or external service; a component with an unclear licence | no |
+| Spending judge quota; starting Ragas judging | no |
+| Growing the scope beyond what was approved; starting the next experiment | no |
+
+Proceed without asking: implementing inside an approved design, adding tests and docs, creating a new config or branch for the current experiment, running offline tests, read-only investigation.
+
 ## Status vocabulary
 
 Tests: `PASS` · `FAIL` · `SKIPPED` · `NOT RUN` · `BLOCKED` (prerequisite missing). Deselected tests are `NOT RUN`.

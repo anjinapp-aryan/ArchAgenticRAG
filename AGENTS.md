@@ -31,6 +31,16 @@ An experiment lab for RAG and agentic RAG: Docling chunking → FastEmbed embedd
 - a comparison stops being controlled (more than one variable changed, or a different provider or model answered)
 - the scope grows beyond what was approved
 
+## Ask first, before starting
+
+- changing a frozen artifact, the dataset or qrels; recreating an existing collection; deleting a run
+- a major architecture change, a breaking interface change, or anything that touches production
+- a new paid or external service, or a component with an unclear licence
+- spending judge quota; pushing to `main`; force-pushing
+- growing the scope, or starting the next experiment
+
+Everything else inside the approved scope proceeds without asking. Which of these a hook enforces: `docs/ai-development/AGENT_WORKFLOW.md`.
+
 ## Commands (Windows; run from the repo root)
 
 | Task | Command |
@@ -42,6 +52,7 @@ An experiment lab for RAG and agentic RAG: Docling chunking → FastEmbed embedd
 | Run an experiment, no judge | `.venv/Scripts/python eval/runners/run_eval.py eval/configs/<cfg>.yaml --defer-judge` |
 | Finish or judge a run | `.venv/Scripts/python eval/runners/resume_eval.py eval/results/<run_id> [--no-judge]` |
 | Compare experiments | `.venv/Scripts/python eval/runners/benchmark.py --all` |
+| Check frozen artifacts | `python .claude/hooks/guard.py verify` |
 | Relevance labels for a collection | `.venv/Scripts/python eval/runners/build_qrels.py eval/configs/<cfg>.yaml` |
 
 If Docker or Qdrant is unavailable, integration and live are BLOCKED. `python -m archagenticrag.rag.ingest <cfg>` **deletes and recreates** its config's collection: run it only for a new collection. No linter, formatter or CI is configured; do not add one unasked. Files are LF (`.gitattributes`).
@@ -51,7 +62,9 @@ If Docker or Qdrant is unavailable, integration and live are BLOCKED. `python -m
 | Task | Skills, in order | Read |
 |---|---|---|
 | New capability, dependency or model | `reuse-audit`, `license-audit`, `architecture-review` | `docs/ai-development/REUSE_FIRST_POLICY.md` |
-| New experiment | `experiment-design`, `reuse-audit`, `architecture-review`, `evaluation`, `testing` | `docs/ai-development/EXPERIMENT_RULES.md` |
+| New experiment, or "improve retrieval" | `experiment-design`, `reuse-audit`, `architecture-review`, `implementation`, `evaluation`, `testing` | `docs/ai-development/EXPERIMENT_RULES.md` |
+| Implement an approved design or a fix | `implementation`, `testing` | `docs/ai-development/ARCHITECTURE_RULES.md` |
+| Investigate a failure | `failure-investigation` | the skill's triage table |
 | New or changed LLM provider | `provider-development`, `reuse-audit`, `license-audit`, `security`, `testing` | `docs/MULTI-PROVIDER-FALLBACK.md` |
 | Run or judge an evaluation | `evaluation`, `data-retention` | `eval/README.md` |
 | Structural change | `architecture-review` | `docs/ai-development/ARCHITECTURE_RULES.md` |

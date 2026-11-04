@@ -23,7 +23,7 @@ The config or run directory; the comparison set; whether the user approved judgi
 
 ## Required checks
 - Sanity: the baseline row of `benchmark.py --all` still reads 27/42 pass, faithfulness 0.847 (n=34), correctness 0.724 (n=30).
-- Dataset and corpus hashes match the manifests (`resume_eval` enforces this).
+- Dataset and corpus hashes match the manifests (`resume_eval` enforces this), and `python .claude/hooks/guard.py verify` reports no MISMATCH before and after.
 - Fallback runs are labelled as multi-provider (`provider-development`).
 - A run directory is never edited by hand; a changed config means a new run.
 

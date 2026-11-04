@@ -16,7 +16,7 @@ The staged or working-tree changes; the `.env` variable names (never values).
 
 ## Workflow
 1. **`.env` is ignored:** `git check-ignore .env` must print `.env`. `.env.example` holds placeholders only.
-2. **Existing hook:** `.git/hooks/pre-commit` blocks `.env` files and key patterns at commit time. Run it early on staged changes with `sh .git/hooks/pre-commit`. It is local and **not versioned**: a fresh clone does not have it.
+2. **Existing hook:** `.git/hooks/pre-commit` blocks `.env` files and key patterns at commit time. Run it early on staged changes with `sh .git/hooks/pre-commit`. It is local and **not versioned**: a fresh clone does not have it. It runs on every `git commit` on this machine, including commits made from an editor. The versioned `.claude/hooks/guard.py` adds the value-based scan and wider key shapes, but only for commits Claude itself runs.
 3. **Value-based scan.** The hook's patterns miss some providers, so also search for the actual secret values without printing them:
    ```
    grep -E '^[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*=.{12,}' .env | while IFS='=' read -r n v; do

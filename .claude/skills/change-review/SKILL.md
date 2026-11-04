@@ -16,7 +16,7 @@ The diff (`git diff`, `git diff main...HEAD`, or a PR number) and the original t
 
 ## Workflow
 1. **Scope:** `git diff --stat`. Every file traces to the task; no drive-by moves, renames or reformatting.
-2. **Frozen artifacts:** `git diff --name-only | grep -E '^(data/corpus|eval/datasets|eval/configs/(baseline|control|exp0|phase))'` should show only intended additions. Verify the register in `EXPERIMENT_RULES.md` (fingerprints, hashes). Results are gitignored, so check `eval/results` by hash or modification time.
+2. **Frozen artifacts:** `python .claude/hooks/guard.py verify` must report no MISMATCH (it covers gitignored results too), and `git diff --name-only` should show no frozen file unless the task authorised it.
 3. **Architecture:** placement and dependency direction per `ARCHITECTURE_RULES.md`; `build_graph(system)` and manifest-referenced names unchanged; new optional config fields excluded from fingerprints while unset.
 4. **Correctness:** edge cases, error paths, determinism, resource use. Also run the built-in `/code-review`.
 5. **Tests:** new behaviour covered offline; no test weakened; statuses reported honestly (`testing`).

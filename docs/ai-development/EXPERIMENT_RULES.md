@@ -66,16 +66,12 @@ State level (retrieval or answer), the control, and whether the difference is st
 
 ## Frozen artifact register
 
-Changing any of these needs an explicit instruction. If one is changed on purpose, update this table in the same change. Verified 2026-11-03.
+The machine-readable register is `docs/ai-development/frozen-artifacts.json`: the hashes and fingerprints live there and nowhere else. Check it with `python .claude/hooks/guard.py verify`; the commit gate, `tests/ai_development` and the skills use the same file. Changing any of these needs an explicit instruction. If one is changed on purpose, update the register in the same change.
 
 | Artifact | How to verify | Expected |
 |---|---|---|
-| Baseline config fingerprint | `.venv/Scripts/python -c "from archagenticrag.evaluation.config import load_config as l; print(l('eval/configs/baseline-basic-rag.yaml').fingerprint())"` (also pinned by a test) | `63bf3b5f990cc9e5` |
-| Other fingerprints (same call, other config) | exp02 `690aff0c9e3997bd` · exp03 `532e86f37f018e05` · phase3-1 `d53636ae426cd64f` · control B1 `edde17323d8722cd` · control B2 `dc235c8ab5693621` | as listed |
-| Baseline run `eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/` | `sha256sum config.yaml items.jsonl manifest.json summary.json` (gitignored, local only) | the four hashes listed below the table |
-| `eval/datasets/peps-v1/golden.json` | `sha256sum` (also recorded in every manifest; `resume_eval` refuses a mismatch) | `18a359e928ae792fec9fcb74e11b2efce7338f520974a2c0f2c0ada0f270a520` |
-| `data/corpus/peps/MANIFEST.json` | `sha256sum` | `b3f7f85b9c47e3784b682188e9f86f30a7c1828666ccc52879ee4a2885a9da03` |
-| Qrels (`eval/datasets/peps-v1/qrels/*.json`) | git diff; integration tests compare their chunk catalogs with the live collections | unchanged |
+| Config fingerprints of every file in `eval/configs/` | `guard.py verify`; the baseline is also pinned by a test | baseline `63bf3b5f990cc9e5`; the rest in the register |
+| Baseline run `eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/` (gitignored, local only) | `guard.py verify` | hashes in the register |
+| `eval/datasets/peps-v1/golden.json`, `data/corpus/peps/MANIFEST.json` | `guard.py verify` (the hash is also recorded in every manifest; `resume_eval` refuses a mismatch) | hashes in the register |
+| Qrels (`eval/datasets/peps-v1/qrels/*.json`) | `guard.py verify`; integration tests compare their chunk catalogs with the live collections | hashes in the register |
 | Baseline collection `peps_v1_bge_small_docling_480` | integration tests; `curl -s localhost:6333/collections/<name>` | 455 points, `indexed_at` `2026-10-01T14:31:48` |
-
-Baseline run hashes: `fd510ab9e3919f3d675eaae4224954b3b18a3f7b67a6f2f0a9c99a55094ce609` (config.yaml), `a4db3e3ebc77a31e101e7d0c7b2e88034dfb1fdea7837415b536619fc4e8e066` (items.jsonl), `a13d28572060e603641d0288273db266215e22563e884b3a1b887af5978483e4` (manifest.json), `434880a4dad0aef86b498cb87dd302f3d6153e23a96b38068d979429e2480cf2` (summary.json).

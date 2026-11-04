@@ -25,7 +25,7 @@ The artifact in question and which docs or registry entries reference it.
 | Cache | FastEmbed models in `FASTEMBED_CACHE_PATH` (kept outside `%TEMP%`), HF cache | may be deleted if unused; they re-download |
 | Disposable | scratch scripts and probe output, `__pycache__`, `.pytest_cache` | delete freely |
 
-2. **Before any destructive step** (ingestion, collection delete, run delete, history rewrite) confirm the target is new or authorised, list what references it, and ask if unsure.
+2. **Before any destructive step** (ingestion, collection delete, run delete, history rewrite) confirm the target is new or authorised, list what references it, and ask if unsure. The `guard.py` hook denies shell or tool changes to `eval/results` and ingestion into an existing collection; only the user can unlock them (`docs/ai-development/AGENT_WORKFLOW.md`).
 3. **Reproducibility needs:** a run's `manifest.json` (config, fingerprint, git commit and dirty flag, package versions, dataset and corpus hashes), `config.yaml`, `items.jsonl`, `summary.json`. Prefer a committed tree for official runs; if dirty, say so in the report.
 4. **Never store credentials** in any artifact (`security`).
 5. Do not add backup scripts or retention tooling; report the gap instead.

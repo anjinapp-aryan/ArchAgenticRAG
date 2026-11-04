@@ -8,6 +8,25 @@ The shared rules are in `AGENTS.md` (imported above). Keep this file for Claude 
 
 Project skills are in `.claude/skills/<name>/SKILL.md`. Their descriptions are always visible and the body loads when a skill is used, so use them instead of re-deriving a procedure. The task-to-skill routing table is in `AGENTS.md`. Skills can also be invoked as `/<name>`.
 
+## Agents
+
+Project agents in `.claude/agents/` run in their own context and have no Write or Edit tools. Delegate bulky reading or an independent review; keep quick lookups, interactive work and every edit in the main conversation.
+
+| Agent | Use for |
+|---|---|
+| `researcher` | broad read-only investigation, failure evidence, documentation |
+| `reuse-auditor` | REUSE / ADAPT / COMPOSE / REFERENCE / BUILD decisions with licences |
+| `architect` | placement, boundaries and GO / NO-GO designs |
+| `experimenter` | experiment design and interpreting results |
+| `evaluator` | running and comparing evaluations; never starts judging unasked |
+| `reviewer` | independent review of a diff against the project rules |
+
+## Hooks and rules
+
+- `.claude/settings.json` wires three hooks to `.claude/hooks/guard.py` (stdlib Python, fails open): a write guard for frozen artifacts, a command guard (key leaks in commits, force-push, destructive git, ingestion into an existing collection, deleting run results) and a drift check that runs the pin or lint tests after config or studio edits. A `deny` is enforced in every permission mode; an `ask` may be auto-approved in bypass mode. If a hook blocks an irreversible action, report it; only the user can unlock it (`docs/ai-development/AGENT_WORKFLOW.md`). Design: `docs/ai-development/STUDIO_REUSE_AUDIT.md`.
+- `.claude/rules/*.md` are path-scoped and load when a matching file is read or edited.
+- `tests/ai_development/` keeps all of this consistent and runs with the normal offline tests.
+
 ## Working agreements
 
 - **Audit and design requests** produce a report and stop. Implement only after a GO and the user's go-ahead.

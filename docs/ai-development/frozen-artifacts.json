@@ -1,0 +1,30 @@
+{
+  "_about": "Machine-readable register of frozen artifacts (rules: docs/ai-development/EXPERIMENT_RULES.md). Checked by `python .claude/hooks/guard.py verify`, by the commit gate and by tests/ai_development. If an authorised change alters one, update this file in the same change.",
+  "verified_on": "2026-11-03",
+  "protected_globs": [
+    "eval/results",
+    "eval/results/*",
+    "eval/datasets/*/golden.json",
+    "eval/datasets/*/qrels/*",
+    "data/corpus",
+    "data/corpus/*"
+  ],
+  "files": {
+    "eval/datasets/peps-v1/golden.json": "18a359e928ae792fec9fcb74e11b2efce7338f520974a2c0f2c0ada0f270a520",
+    "data/corpus/peps/MANIFEST.json": "b3f7f85b9c47e3784b682188e9f86f30a7c1828666ccc52879ee4a2885a9da03",
+    "eval/datasets/peps-v1/qrels/peps_v1_bge_small_docling_480.json": "9b7a3abb8805d84b297f1804b7959713fd90e03cf6b8fef8967af6e166c2fa6f",
+    "eval/datasets/peps-v1/qrels/peps_v1_bge_small_docling_480_hybrid_bm25.json": "54fbad00be4c803c5f2119d9c5834802eaa953ccd702348f274ed7b477edda8d",
+    "eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/config.yaml": "fd510ab9e3919f3d675eaae4224954b3b18a3f7b67a6f2f0a9c99a55094ce609",
+    "eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/items.jsonl": "a4db3e3ebc77a31e101e7d0c7b2e88034dfb1fdea7837415b536619fc4e8e066",
+    "eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/manifest.json": "a13d28572060e603641d0288273db266215e22563e884b3a1b887af5978483e4",
+    "eval/results/20261001T173531Z-baseline-basic-rag-63bf3b5f-6227d9/summary.json": "434880a4dad0aef86b498cb87dd302f3d6153e23a96b38068d979429e2480cf2"
+  },
+  "fingerprints": {
+    "eval/configs/baseline-basic-rag.yaml": "63bf3b5f990cc9e5",
+    "eval/configs/control-b1-topk8.yaml": "edde17323d8722cd",
+    "eval/configs/control-b2-mmr.yaml": "dc235c8ab5693621",
+    "eval/configs/exp02-hybrid-bm25.yaml": "690aff0c9e3997bd",
+    "eval/configs/exp03-hybrid-rerank.yaml": "532e86f37f018e05",
+    "eval/configs/phase3-1-decomposition.yaml": "d53636ae426cd64f"
+  }
+}

@@ -15,7 +15,7 @@ After any code change, before any commit, and when asked about test status.
 What changed; which prerequisites are available.
 
 ## Workflow
-1. **Offline (default, about 15 s):** `.venv/Scripts/python -m pytest -q`. Needs no service. It deselects integration and live tests, so those are **NOT RUN**, not passed.
+1. **Offline (default, about 15 s):** `.venv/Scripts/python -m pytest -q`. Needs no service. It includes `tests/ai_development` (consistency of the agent instructions and the hooks). It deselects integration and live tests, so those are **NOT RUN**, not passed.
 2. **Integration (about 1–2 min):** `.venv/Scripts/python -m pytest -m integration -q`. Needs Qdrant on `localhost:6333` (`docker compose up -d qdrant`, Docker Desktop running), the indexed collections, and FastEmbed/Docling models. Without them the tests skip or error: report BLOCKED with the reason.
 3. **Live (about 4 min):** `.venv/Scripts/python -m pytest -m live -q`. Calls real providers with `.env` keys and consumes free-tier quota, including a little judge quota. Run only when the change touches providers, evaluation or the real stack, or when asked.
 4. **New behaviour:** write offline tests first, with fakes (fake chat model, `DeterministicFakeEmbedding`, in-memory Qdrant, `httpx.MockTransport`); integration tests only for what needs real Qdrant, read-only on baseline collections; live tests tiny.
