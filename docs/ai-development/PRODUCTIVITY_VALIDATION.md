@@ -88,6 +88,20 @@ This is why run results and existing collections are `deny`. It also means an `a
 
 The drift hook sent 18 messages during construction. 16 were intermediate states: 12 because the test directory did not exist yet (fixed by skipping the check when there is nothing to run), and 4 in the middle of multi-edit sequences, where one edit depends on the next. 2 were real catches: two new skills not yet routed from `AGENTS.md`, and a wrong expectation in one of my new tests. This is the worst case, since it is bulk-editing interdependent files. Routine experiment work has not been measured.
 
+**Noise after the two-tier change (measured 2026-11-04)**
+
+Change: after a studio edit the hook now runs the checks that depend only on that file (inline checks, plus one parametrised lint test for a skill, agent or rule). Checks that read several files (routing from `AGENTS.md` and `CLAUDE.md`, link and path checks) moved to the commit gate, which runs them on the whole change. Pin tests after config edits are unchanged.
+
+Method: eight synthetic edits, replayed through the hook as it was at `HEAD` and as it is now, in a scratch copy of the repository (same files, same tests, results folder included). Two sequences create a skill in steps and name a skill before it exists. Two edits are real defects (skill name differs from its directory; description missing). One edit is a harmless docs sentence. One run of each, so timings are indicative only.
+
+| Measure | Before | After |
+|---|---|---|
+| Harmless edits blocked (6) | 2 | 1 |
+| Real defects caught (2) | 2 | 2 |
+| Hook time over the 8 edits | 92.6 s (about 10 s per studio edit) | 5.9 s (about 1 s per skill edit, 0.1 s otherwise) |
+
+The remaining block is a skill file written with a front matter and no sections yet: it is malformed at that moment, so the lint is right to say so. Writing a skill in a single Write avoids it. The one block removed was "skill exists but is not yet routed", which the commit gate now reports instead. The scale is small (eight edits, synthetic), and the harness was fixed twice before this run (a too-short description in my own sample and a results folder missing from the copy), so treat the counts as an illustration of the mechanism, not a rate.
+
 **Cost of the hooks**
 
 | Measure | Value |
@@ -108,7 +122,10 @@ For the next real task (for example Experiment 04), record in its report:
 1. the words in the user's request, against the 1,555-word median above;
 2. the number of times the user had to restate a standing rule or request a check;
 3. how many hook asks or denies occurred, and whether each was correct;
-4. any quality check that was missed.
+4. any quality check that was missed;
+5. hook messages that were intermediate states rather than defects (the count above is the reference: 1 of 8 synthetic edits).
+
+One task is one data point. Do not turn a single comparison into a rate; repeat on the next task of the same kind before stating one.
 
 Compare like with like (a task of the same kind). A result with no improvement is a valid result.
 

@@ -3,8 +3,9 @@
 
   guard.py pre-write    PreToolUse  Write|Edit        ask before changing a frozen artifact
   guard.py pre-bash     PreToolUse  Bash|PowerShell   destructive-command and commit gates
-  guard.py post-write   PostToolUse Write|Edit        run the pin or lint tests when relevant files change
+  guard.py post-write   PostToolUse Write|Edit        tier-1 drift checks on the edited file (cross-file checks wait for the commit)
   guard.py verify       (command line)                compare frozen artifacts with the register
+  guard.py scan-staged  (versioned git hook)          secret scan of the staged changes; fails closed
 
 Rationale and measured behaviour: docs/ai-development/STUDIO_REUSE_AUDIT.md and
 PRODUCTIVITY_VALIDATION.md. The register is docs/ai-development/frozen-artifacts.json.
@@ -18,6 +19,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -34,11 +36,33 @@ MAIN_BRANCHES = {"main", "master"}
 # from inside a tool call, so this is a human-only override for the irreversible cases below.
 OVERRIDE_ENV = "ARCHAGENTICRAG_ALLOW_DESTRUCTIVE"
 
-# Key shapes. Anchored so ordinary words such as "task-based-evaluation" cannot match "sk-".
-SECRET_SHAPES = re.compile(
-    r"(?<![A-Za-z0-9])(?:AIza[0-9A-Za-z_-]{20,}|AQ\.Ab8[0-9A-Za-z_-]{10,}|gsk_[0-9A-Za-z]{20,}"
-    r"|nvapi-[0-9A-Za-z_-]{20,}|xai-[0-9A-Za-z]{20,}|csk-[0-9A-Za-z]{20,}|sk-[0-9A-Za-z_-]{20,})"
+# Secret formats as (label, pattern). Specific formats come first so a finding names the provider. They are anchored so
+# ordinary words such as "task-based-evaluation" cannot match "sk-". A finding reports the label and the file, never the text.
+_B = r"(?<![A-Za-z0-9])"
+SECRET_RULES = (
+    ("Anthropic key", re.compile(_B + r"sk-ant-[A-Za-z0-9_-]{20,}")),
+    ("OpenRouter key", re.compile(_B + r"sk-or-v1-[A-Za-z0-9]{32,}")),
+    ("Langfuse secret key", re.compile(_B + r"sk-lf-[0-9a-f-]{20,}")),
+    ("OpenAI-style sk- key", re.compile(_B + r"sk-[A-Za-z0-9_-]{20,}")),
+    ("Gemini key", re.compile(_B + r"(?:AIza[0-9A-Za-z_-]{20,}|AQ\.Ab8[0-9A-Za-z_-]{10,})")),
+    ("Groq key", re.compile(_B + r"gsk_[A-Za-z0-9]{20,}")),
+    ("Cerebras key", re.compile(_B + r"csk-[A-Za-z0-9]{20,}")),
+    ("NVIDIA key", re.compile(_B + r"nvapi-[A-Za-z0-9_-]{20,}")),
+    ("xAI key", re.compile(_B + r"xai-[A-Za-z0-9]{20,}")),
+    ("GitHub token", re.compile(_B + r"(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{50,})")),
+    ("AWS access key id", re.compile(r"(?<![A-Z0-9])AKIA[0-9A-Z]{16}(?![A-Z0-9])")),
+    ("private key", re.compile(r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY(?: BLOCK)?-----")),
 )
+# Some providers (SambaNova: a UUID; Cloudflare: 40 plain characters) have no recognisable shape, so they are found by the
+# variable name they are assigned to. CLOUDFLARE_ACCOUNT_ID is deliberately absent: an account id is not a secret.
+SECRET_VARIABLES = (
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "CEREBRAS_API_KEY",
+    "SAMBANOVA_API_KEY", "CLOUDFLARE_API_TOKEN", "NVIDIA_API_KEY", "XAI_API_KEY", "LANGFUSE_SECRET_KEY",
+)  # fmt: skip
+# Spaces and tabs only between the name and the value: a newline must never let the next line be read as the value.
+ASSIGNED_SECRET = re.compile(r"(?<![A-Z0-9_])(" + "|".join(SECRET_VARIABLES) + r")[\"']?[ \t]*[:=][ \t]*[\"']?([A-Za-z0-9][A-Za-z0-9_./+=-]{19,})")
+GENERIC_ASSIGNMENT = re.compile(r"(?i)\b(?:api[_-]?key|secret|token|passwd|password)[\"']?[ \t]*[:=][ \t]*[\"']([A-Za-z0-9+/_=-]{32,})[\"']")
+PLACEHOLDER = re.compile(r"^(your|xxx|changeme|change-me|example|placeholder|dummy|fake|replace|test)", re.I)
 SECRET_NAME = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD)")
 PIN_TRIGGERS = (
     "eval/configs/*.yaml",
@@ -113,9 +137,15 @@ def project_python() -> str | None:
     return None
 
 
-def git(*args: str) -> str:
-    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=20)
-    return out.stdout if out.returncode == 0 else ""
+def git(*args: str, strict: bool = False) -> str:
+    """Run git in the project. UTF-8 with replacement, so a diff containing any character cannot crash a scan.
+    Non-strict returns "" on failure; strict (the git hook) raises, so a failed scan can never look like a clean one."""
+    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
+    if out.returncode != 0:
+        if strict:
+            raise RuntimeError(f"git {args[0]} failed with exit {out.returncode}")
+        return ""
+    return out.stdout
 
 
 def current_branch() -> str:
@@ -180,8 +210,30 @@ def env_secrets() -> dict[str, str]:
     return secrets
 
 
+def entropy(value: str) -> float:
+    counts = {c: value.count(c) for c in set(value)}
+    return -sum(n / len(value) * math.log2(n / len(value)) for n in counts.values())
+
+
+def find_secrets(text: str) -> list[str]:
+    """Labels of the secret formats found in ``text``. Never returns the matched text."""
+    labels = [label for label, rx in SECRET_RULES if rx.search(text)]
+    if any(specific in labels for specific in ("Anthropic key", "OpenRouter key", "Langfuse secret key")):
+        labels = [label for label in labels if label != "OpenAI-style sk- key"]  # the specific name already says it
+    for m in ASSIGNED_SECRET.finditer(text):
+        if not PLACEHOLDER.match(m.group(2)):
+            labels.append(f"{m.group(1)} assigned a value")
+            break
+    for m in GENERIC_ASSIGNMENT.finditer(text):
+        v = m.group(1)
+        if re.search(r"[A-Za-z]", v) and re.search(r"\d", v) and not PLACEHOLDER.match(v) and entropy(v) >= 3.5:
+            labels.append("secret-like literal assigned to a key, token or password")
+            break
+    return labels
+
+
 def scan_diff(diff: str, secrets: dict[str, str]) -> list[str]:
-    """Findings for the added lines of a unified diff: file and variable names only."""
+    """Findings for the added lines of a unified diff: labels, file names and variable names only."""
     findings: list[str] = []
     current = "?"
     for line in diff.splitlines():
@@ -193,23 +245,43 @@ def scan_diff(diff: str, secrets: dict[str, str]) -> list[str]:
         for name, value in secrets.items():
             if value in line:
                 findings.append(f"value of {name} from .env appears in {current}")
-        if SECRET_SHAPES.search(line):
-            findings.append(f"key-shaped text appears in {current}")
+        for label in find_secrets(line):
+            findings.append(f"{label} appears in {current}")
     return sorted(set(findings))
+
+
+def secret_findings(base: list[str], strict: bool = False) -> list[str]:
+    """Secret findings for the diff selected by ``base`` (``diff --cached`` or ``diff HEAD``)."""
+    findings = []
+    for name in git(*base, "--name-only", strict=strict).splitlines():
+        if re.search(r"(^|/)\.env($|\.)", name) and not name.endswith(".example"):
+            findings.append(f"{name} is an environment file and must not be committed")
+    return findings + scan_diff(git(*base, "-U0", strict=strict), env_secrets())
 
 
 def commit_findings(args: list[str]) -> list[str]:
     stage_all = any(a == "--all" or (re.fullmatch(r"-[A-Za-z]+", a) and "a" in a) for a in args if not a.startswith("--") or a == "--all")
     base = ["diff", "HEAD"] if stage_all else ["diff", "--cached"]
-    findings = []
-    for name in git(*base, "--name-only").splitlines():
-        if re.search(r"(^|/)\.env($|\.)", name) and not name.endswith(".example"):
-            findings.append(f"{name} is an environment file and must not be committed")
-    findings += scan_diff(git(*base, "-U0"), env_secrets())
+    findings = secret_findings(base)
     for status, name, detail in verify(load_register()):
         if status == "MISMATCH":
             findings.append(f"frozen artifact changed: {name} ({detail})")
+    findings += checkpoint_test_failures(git(*base, "--name-only").splitlines())
     return findings
+
+
+def cli_scan_staged() -> int:
+    """Run by the versioned git hook (.githooks/pre-commit). Unlike the Claude hooks it fails closed: a scanner error blocks the commit."""
+    try:
+        findings = secret_findings(["diff", "--cached"], strict=True)
+    except Exception as exc:
+        sys.stderr.write(f"pre-commit: the secret scanner failed ({type(exc).__name__}); commit blocked. Fix the scanner, or accept the risk with --no-verify.\n")
+        return 2
+    if findings:
+        sys.stderr.write("pre-commit: commit blocked.\n" + "".join(f"  - {f}\n" for f in findings))
+        sys.stderr.write("Remove it from the commit. A real key that was staged must be rotated. Do not use --no-verify for a real key.\n")
+        return 1
+    return 0
 
 
 # ---------- shell command analysis ----------
@@ -412,27 +484,106 @@ def pre_bash(data: dict) -> dict | None:
     return check_bash((data.get("tool_input") or {}).get("command") or "", load_register())
 
 
+# Drift checks run in two tiers, so a multi-file edit is not reported while it is still half done.
+#   Tier 1, after each edit: only what the edited file alone can get wrong (see inline_problems), plus the single lint test
+#   of a skill, agent or rule file, and the fingerprint pins for config edits.
+#   Tier 2, at the commit checkpoint: the cross-file tests (routing, links, flags, register). See checkpoint_test_failures.
+STUDIO_LOCAL = (
+    (re.compile(r"^\.claude/skills/([^/]+)/SKILL\.md$"), "test_skill_is_well_formed"),
+    (re.compile(r"^\.claude/agents/([^/]+)\.md$"), "test_agent_is_well_formed_and_read_only"),
+    (re.compile(r"^\.claude/rules/([^/]+)\.md$"), "test_rule_paths_match_real_files"),
+)
+PIN_TESTS = ["tests/rag", "tests/evaluation/test_config.py", "-k", "fingerprint or differ"]
+
+
+def run_pytest(args: list[str], timeout: int = 85) -> tuple[int, str]:
+    out = subprocess.run(
+        [project_python(), "-m", "pytest", "-q", "-x", "--no-header", *args],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+    )  # fmt: skip
+    return out.returncode, "\n".join((out.stdout + out.stderr).strip().splitlines()[-25:])
+
+
+def failed_names(tail: str) -> str:
+    """Test ids only: a failure message can quote test data, so it is not repeated."""
+    names = [line[len("FAILED "):].split(" - ")[0] for line in tail.splitlines() if line.startswith("FAILED ")]
+    return ", ".join(names) or "see the pytest output"
+
+
+def inline_problems(r: str) -> list[str]:
+    """Cheap checks on the edited file alone: line endings, key-shaped text, Python syntax, JSON validity."""
+    data = (ROOT / r).read_bytes()
+    text = data.decode("utf-8", errors="replace")
+    problems = []
+    if b"\r\n" in data:
+        problems.append("has CRLF line endings, but the repository is LF")
+    labels = find_secrets(text)
+    if labels:
+        problems.append("contains key-shaped text (" + ", ".join(labels) + ")")
+    if r.endswith(".py"):
+        try:
+            compile(text, r, "exec")
+        except SyntaxError as exc:
+            problems.append(f"has a syntax error at line {exc.lineno}")
+    elif r.endswith(".json"):
+        try:
+            json.loads(text)
+        except ValueError:
+            problems.append("is not valid JSON")
+    return problems
+
+
+def checkpoint_test_failures(names: list[str]) -> list[str]:
+    """The cross-file and pin tests for the files in a commit: run once, when a commit is attempted."""
+    if not project_python():
+        return []
+    findings = []
+    if any(matches(n, STUDIO_TRIGGERS) for n in names) and (ROOT / "tests" / "ai_development").exists():
+        try:
+            rc, tail = run_pytest(["tests/ai_development"])
+            if rc not in (0, 5):
+                findings.append("AI-development tests fail: " + failed_names(tail))
+        except subprocess.TimeoutExpired:
+            findings.append("AI-development tests did not finish in time; run them by hand")
+    if any(matches(n, PIN_TRIGGERS) for n in names):
+        try:
+            rc, tail = run_pytest(PIN_TESTS)
+            if rc not in (0, 5):
+                findings.append("fingerprint / config-diff pin tests fail: " + failed_names(tail))
+        except subprocess.TimeoutExpired:
+            findings.append("pin tests did not finish in time; run them by hand")
+    return findings
+
+
 def post_write(data: dict) -> int:
     path = (data.get("tool_input") or {}).get("file_path") or ""
     r = rel(path) if path else None
-    py = project_python()
-    if not r or not py:
+    if not r or not project_python():
         return 0
     if matches(r, PIN_TRIGGERS):
-        args = ["tests/rag", "tests/evaluation/test_config.py", "-k", "fingerprint or differ"]
+        if not (ROOT / "tests" / "rag").exists():
+            return 0
+        rc, tail = run_pytest(PIN_TESTS)
         label = "fingerprint / config-diff pin tests"
-    elif matches(r, STUDIO_TRIGGERS):
-        args = ["tests/ai_development"]
-        label = "AI-development consistency tests"
+    elif matches(r, STUDIO_TRIGGERS) and (ROOT / r).is_file():
+        problems = inline_problems(r)
+        if problems:
+            sys.stderr.write(f"{r} " + "; ".join(problems) + ".\n")
+            return 2
+        node = None
+        for rx, test in STUDIO_LOCAL:
+            m = rx.match(r)
+            if m:
+                node = f"tests/ai_development/test_studio_consistency.py::{test}[{m.group(1)}]"
+        if node is None or not (ROOT / "tests" / "ai_development").exists():
+            return 0  # cross-file checks wait for the commit checkpoint and the offline suite
+        rc, tail = run_pytest([node])
+        label = f"lint test of {r}"
     else:
         return 0
-    if not all((ROOT / a).exists() for a in args if a.startswith("tests/")):
-        return 0  # nothing to run yet (for example while the studio tests are being created)
-    out = subprocess.run([py, "-m", "pytest", "-q", "-x", "--no-header", *args], cwd=ROOT, capture_output=True, text=True, timeout=85)
-    if out.returncode in (0, 5):  # 5 = no tests collected: not a failure of the pins
+    if rc in (0, 5):  # 5 = no tests collected: not a failure
         return 0
-    tail = "\n".join((out.stdout + out.stderr).strip().splitlines()[-25:])
-    sys.stderr.write(f"The {label} fail after editing {r}. Fix before continuing:\n{tail}\n")
+    sys.stderr.write(f"The {label} fails after editing {r}. Fix before continuing:\n{tail}\n")
     return 2
 
 
@@ -441,6 +592,8 @@ def cli_verify() -> int:
     for status, name, detail in rows:
         print(f"{status:<8} {name}" + (f"  ({detail})" if detail else ""))
     bad = sum(1 for s, _, _ in rows if s == "MISMATCH")
+    if git("config", "--get", "core.hooksPath").strip() != ".githooks":
+        print("NOTE      the versioned git hook is not installed here: git config core.hooksPath .githooks  (see .githooks/README.md)")
     print(f"frozen artifacts: {sum(1 for s, _, _ in rows if s == 'OK')} OK, {bad} MISMATCH, {sum(1 for s, _, _ in rows if s == 'SKIPPED')} SKIPPED")
     return 1 if bad else 0
 
@@ -450,6 +603,8 @@ def main(argv: list[str]) -> int:
     try:
         if action == "verify":
             return cli_verify()
+        if action == "scan-staged":
+            return cli_scan_staged()
         try:
             data = json.load(sys.stdin)
         except Exception:

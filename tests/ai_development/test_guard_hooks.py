@@ -173,14 +173,20 @@ def test_commit_is_denied_on_a_finding_and_allowed_when_clean():
 
 def test_commit_flags_decide_which_diff_is_scanned(monkeypatch):
     seen = []
-    monkeypatch.setattr(guard, "git", lambda *a: seen.append(a) or "")
+    monkeypatch.setattr(guard, "git", lambda *a, **k: seen.append(a) or "")
+    monkeypatch.setattr(guard, "checkpoint_test_failures", lambda names: [])
     monkeypatch.setattr(guard, "env_secrets", lambda: {})
     monkeypatch.setattr(guard, "verify", lambda reg: [])
     monkeypatch.setattr(guard, "load_register", lambda: REG)
-    guard.commit_findings(["-m", "msg"])
-    guard.commit_findings(["-am", "msg"])
-    guard.commit_findings(["--all", "-m", "msg"])
-    assert seen[0][:2] == ("diff", "--cached") and seen[2][:2] == ("diff", "HEAD") and seen[4][:2] == ("diff", "HEAD")
+    def diff_scanned(args):
+        seen.clear()
+        guard.commit_findings(args)
+        assert len({call[:2] for call in seen}) == 1, "one commit must scan one consistent diff"
+        return seen[0][:2]
+
+    assert diff_scanned(["-m", "msg"]) == ("diff", "--cached")
+    assert diff_scanned(["-am", "msg"]) == ("diff", "HEAD")
+    assert diff_scanned(["--all", "-m", "msg"]) == ("diff", "HEAD")
 
 
 # ---- secret scan: names and files only, never values ----
@@ -196,7 +202,7 @@ def test_scan_finds_env_values_and_key_shapes_without_echoing_them():
     diff = "\n".join(
         [
             "+++ b/src/a.py",
-            f'+TOKEN = "{FAKE_VALUE}"',
+            f'+note = "{FAKE_VALUE}"',
             "+++ b/docs/b.md",
             f"+key {FAKE_OPENROUTER_SHAPE}",
             "+++ b/c.txt",
@@ -205,8 +211,8 @@ def test_scan_finds_env_values_and_key_shapes_without_echoing_them():
     )
     findings = guard.scan_diff(diff, {"FAKE_PROVIDER_API_KEY": FAKE_VALUE})
     assert findings == [
-        "key-shaped text appears in c.txt",
-        "key-shaped text appears in docs/b.md",
+        "Groq key appears in c.txt",
+        "OpenRouter key appears in docs/b.md",
         "value of FAKE_PROVIDER_API_KEY from .env appears in src/a.py",
     ]
     assert all(FAKE_VALUE not in f and "0123456789abcdef" not in f for f in findings)
@@ -276,12 +282,13 @@ def test_post_write_runs_the_pin_tests_for_config_edits_and_reports_failure(monk
     assert "fingerprint" in capsys.readouterr().err
 
 
-def test_post_write_runs_the_lint_tests_for_studio_edits_and_passes_quietly(monkeypatch, capsys):
+def test_post_write_runs_only_the_lint_test_of_the_edited_skill_and_passes_quietly(monkeypatch, capsys):
     calls = []
     monkeypatch.setattr(guard, "project_python", lambda: "python")
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a[0]) or Done(0))
     assert guard.post_write({"tool_input": {"file_path": str(ROOT / ".claude/skills/testing/SKILL.md")}}) == 0
-    assert "tests/ai_development" in calls[0]
+    assert len(calls) == 1 and calls[0][-1] == "tests/ai_development/test_studio_consistency.py::test_skill_is_well_formed[testing]"
+    assert "tests/ai_development" not in calls[0][:-1], "the whole studio suite must wait for the checkpoint"
     assert capsys.readouterr().err == ""
 
 
@@ -310,3 +317,84 @@ def test_verify_is_clean_on_this_checkout():
     rows = guard.verify(guard.load_register())
     assert [r for r in rows if r[0] == "MISMATCH"] == []
     assert any(r[0] == "OK" for r in rows)
+
+
+# ---- two-tier drift checks: tier 1 after each edit, tier 2 at the commit checkpoint ----
+
+
+@pytest.fixture
+def studio(tmp_path, monkeypatch):
+    """A scratch project root, so the tier-1 checks read real files without touching the repository."""
+    for sub in ("docs/ai-development", ".claude/hooks", ".claude/skills/demo", "tests/ai_development"):
+        (tmp_path / sub).mkdir(parents=True)
+    monkeypatch.setattr(guard, "ROOT", tmp_path)
+    monkeypatch.setattr(guard, "project_python", lambda: "python")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("tier 1 must not start pytest for this edit"))
+
+    def edit(rel_path: str, content: bytes | str):
+        p = tmp_path / rel_path
+        p.write_bytes(content if isinstance(content, bytes) else content.encode("utf-8"))
+        return guard.post_write({"tool_input": {"file_path": str(p)}})
+
+    return edit
+
+
+def test_tier1_stays_silent_for_an_unrouted_or_half_finished_cross_file_state(studio, monkeypatch):
+    # a docs edit that mentions a file which does not exist yet: a cross-file problem, reported at the checkpoint, not now
+    assert studio("docs/ai-development/NOTES.md", "See `eval/runners/not_written_yet.py` and [link](MISSING.md).\n") == 0
+
+
+def test_tier1_reports_problems_the_edited_file_has_on_its_own(studio, capsys):
+    assert studio("docs/ai-development/CRLF.md", b"line one\r\nline two\r\n") == 2
+    assert "CRLF" in capsys.readouterr().err
+    assert studio(".claude/hooks/broken.py", "def f(:\n") == 2
+    assert "syntax error at line 1" in capsys.readouterr().err
+    assert studio(".claude/settings.json", "{not json") == 2
+    assert "not valid JSON" in capsys.readouterr().err
+
+
+def test_tier1_reports_key_shaped_text_by_label_not_value(studio, capsys):
+    from .test_secret_scanning import TOKENS
+
+    line = TOKENS["Groq"][1]
+    assert studio("docs/ai-development/LEAK.md", line + "\n") == 2
+    err = capsys.readouterr().err
+    assert "Groq key" in err and line.split()[-1] not in err
+
+
+def test_tier1_runs_one_pytest_node_for_a_malformed_skill_and_reports_it(studio, monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a[0]) or Done(1, "FAILED tests/ai_development/test_studio_consistency.py::test_skill_is_well_formed[demo] - AssertionError: missing ## STOP"))
+    assert studio(".claude/skills/demo/SKILL.md", "---\nname: demo\n---\n") == 2
+    assert len(calls) == 1 and calls[0][-1].endswith("test_skill_is_well_formed[demo]")
+    assert "missing ## STOP" in capsys.readouterr().err  # tier-1 feedback shows the test output so the author can fix it
+
+
+def test_checkpoint_runs_the_cross_file_tests_once_and_reports_test_ids_only(monkeypatch):
+    calls = []
+    monkeypatch.setattr(guard, "project_python", lambda: "python")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a[0]) or Done(1, "FAILED tests/ai_development/test_studio_consistency.py::test_every_skill_is_routed - AssertionError: ['zz-new'] a secret-looking message"))
+    findings = guard.checkpoint_test_failures(["AGENTS.md", ".claude/skills/zz-new/SKILL.md", "docs/ai-development/X.md"])
+    assert len(calls) == 1 and "tests/ai_development" in calls[0]
+    assert findings == ["AI-development tests fail: tests/ai_development/test_studio_consistency.py::test_every_skill_is_routed"]
+    assert "secret-looking" not in findings[0]
+
+
+def test_checkpoint_runs_the_pin_tests_for_config_changes_and_nothing_for_other_files(monkeypatch):
+    calls = []
+    monkeypatch.setattr(guard, "project_python", lambda: "python")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a[0]) or Done(0))
+    assert guard.checkpoint_test_failures(["eval/configs/exp04-new.yaml"]) == []
+    assert len(calls) == 1 and "fingerprint or differ" in calls[0]
+    calls.clear()
+    assert guard.checkpoint_test_failures(["src/archagenticrag/rag/rerank.py", "README.md"]) == []
+    assert calls == []
+
+
+def test_the_commit_gate_includes_the_checkpoint_tests(monkeypatch):
+    monkeypatch.setattr(guard, "secret_findings", lambda base, strict=False: [])
+    monkeypatch.setattr(guard, "verify", lambda reg: [])
+    monkeypatch.setattr(guard, "load_register", lambda: REG)
+    monkeypatch.setattr(guard, "git", lambda *a, **k: "AGENTS.md\n")
+    monkeypatch.setattr(guard, "checkpoint_test_failures", lambda names: ["AI-development tests fail: x"] if "AGENTS.md" in names else [])
+    assert guard.commit_findings(["-m", "msg"]) == ["AI-development tests fail: x"]

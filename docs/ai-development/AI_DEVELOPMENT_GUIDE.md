@@ -86,10 +86,10 @@ pytest markers (`integration`, `live`) · config fingerprints and config-diff te
 
 ## 6. Known gaps (reported, not fixed here)
 
-- **The git pre-commit hook is not versioned** (`.git/hooks`), so a fresh clone is unprotected, and its patterns miss OpenRouter, SambaNova and Cloudflare key shapes. `guard.py` adds a value-based scan and wider shapes only for commits Claude itself runs. A versioned git hook with wider patterns needs the owner's decision.
+- **The versioned git hook needs one command per clone.** `.githooks/pre-commit` runs the `guard.py` secret scan on every commit (any editor, any tool), but Git does not enable a hook by itself: run `git config core.hooksPath .githooks` once (`guard.py verify` prints a NOTE when it is off). `.githooks/README.md` lists what it blocks and what it cannot see (for example a shape-less token under an unknown name). The older local `.git/hooks/pre-commit` is unaffected until the setting is turned on.
 - **An `ask` can be auto-approved.** In a bypass-permissions, non-interactive session an `ask` decision did not stop a command (live probe). `deny` is enforced in every mode. Frozen files that git can restore are therefore only advisory in that mode.
 - **Project agents are discovered only at session start.** A call to `researcher` failed with "not found" in the session that created the files, and worked after a restart (the agent saw its preloaded `failure-investigation` skill and the `AGENTS.md` rules). Adding or renaming an agent needs a new session. `claude plugin validate .claude/agents` needs a newer CLI than 2.1.181.
-- **`eval/results/` is gitignored.** Run data exists only on the local machine; reports quote the numbers. The hook denies agent changes to it, but there is no backup.
+- **`eval/results/` is gitignored.** Run data exists only on the local machine; reports quote the numbers. The hook denies agent changes to it. No backup is enabled; the options (a local archive is recommended, external storage only with the owner's approval) are in `EXPERIMENT_RULES.md`, "Results retention".
 - **No linter, formatter or CI.** Quality gates rely on tests and review.
 - **Hybrid retrieval is non-deterministic** (RRF ties), which `EXPERIMENT_RULES.md` accounts for. The Experiment 02 report predates that finding.
 

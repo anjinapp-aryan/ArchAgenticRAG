@@ -20,7 +20,7 @@ The artifact in question and which docs or registry entries reference it.
 | Class | Artifacts | Rule |
 |---|---|---|
 | Versioned evidence | code, configs, docs, `eval/experiments.yaml`, golden set, corpus, qrels, `THIRD_PARTY_NOTICES.md` | in git; frozen ones are read-only |
-| Local-only evidence | `eval/results/<run_id>/` (gitignored) | the only copy of the run data; reports quote its numbers. Never delete, edit or overwrite a run referenced by the registry (`final_runs`) or a report. Back up before risky work |
+| Local-only evidence | `eval/results/<run_id>/` (gitignored) | the only copy of the run data; reports quote its numbers. Never delete, edit or overwrite a run referenced by the registry (`final_runs`) or a report. Which files are rebuildable, and the backup options: `EXPERIMENT_RULES.md`, section "Results retention" |
 | Rebuildable, but frozen | Qdrant collections (rebuilt by ingestion) | do not recreate the baseline or earlier experiments' collections: it changes `indexed_at`, and integration tests compare chunk texts with the qrels |
 | Cache | FastEmbed models in `FASTEMBED_CACHE_PATH` (kept outside `%TEMP%`), HF cache | may be deleted if unused; they re-download |
 | Disposable | scratch scripts and probe output, `__pycache__`, `.pytest_cache` | delete freely |

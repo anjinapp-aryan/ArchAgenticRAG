@@ -37,6 +37,7 @@ AGENTS.md, CLAUDE.md   rules for AI coding agents; skills in .claude/skills/, gu
 uv venv --python 3.12 .venv
 uv pip install -e ".[eval]" pytest pytest-asyncio
 cp .env.example .env                                 # add the key for your provider; never commit .env
+git config core.hooksPath .githooks                  # secret scan on every commit (see .githooks/README.md)
 .venv/Scripts/python -m pytest                       # offline tests
 docker compose up -d qdrant
 .venv/Scripts/python -m archagenticrag.rag.ingest eval/configs/baseline-basic-rag.yaml

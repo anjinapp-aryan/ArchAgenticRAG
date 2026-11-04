@@ -25,7 +25,7 @@ ALL_TEXT = [*TOP, *DOCS, *SKILLS, *AGENTS, *RULES]
 SKILL_SECTIONS = ["## Purpose", "## When to use", "## Inputs", "## Workflow", "## Required checks", "## Output", "## STOP"]
 AGENT_SECTIONS = ["## Purpose", "## Procedure", "## Output", "## STOP"]
 KNOWN_TOOLS = {"Read", "Grep", "Glob", "Bash", "WebFetch", "WebSearch"}
-HOOK_ACTIONS = {"pre-write", "pre-bash", "post-write", "verify"}
+HOOK_ACTIONS = {"pre-write", "pre-bash", "post-write", "verify", "scan-staged"}
 RUNNER_FLAGS = {
     "--defer-judge": "eval/runners/run_eval.py",
     "--no-judge": "eval/runners/resume_eval.py",

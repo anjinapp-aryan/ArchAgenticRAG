@@ -23,7 +23,7 @@ Project agents in `.claude/agents/` run in their own context and have no Write o
 
 ## Hooks and rules
 
-- `.claude/settings.json` wires three hooks to `.claude/hooks/guard.py` (stdlib Python, fails open): a write guard for frozen artifacts, a command guard (key leaks in commits, force-push, destructive git, ingestion into an existing collection, deleting run results) and a drift check that runs the pin or lint tests after config or studio edits. A `deny` is enforced in every permission mode; an `ask` may be auto-approved in bypass mode. If a hook blocks an irreversible action, report it; only the user can unlock it (`docs/ai-development/AGENT_WORKFLOW.md`). Design: `docs/ai-development/STUDIO_REUSE_AUDIT.md`.
+- `.claude/settings.json` wires three hooks to `.claude/hooks/guard.py` (stdlib Python, fails open): a write guard for frozen artifacts, a command guard (key leaks in commits, force-push, destructive git, ingestion into an existing collection, deleting run results) and a drift check (pin tests after config edits; file-local lint after studio edits; cross-file checks wait for the commit gate). The versioned git hook `.githooks/pre-commit` needs `git config core.hooksPath .githooks` once per clone. A `deny` is enforced in every permission mode; an `ask` may be auto-approved in bypass mode. If a hook blocks an irreversible action, report it; only the user can unlock it (`docs/ai-development/AGENT_WORKFLOW.md`). Design: `docs/ai-development/STUDIO_REUSE_AUDIT.md`.
 - `.claude/rules/*.md` are path-scoped and load when a matching file is read or edited.
 - `tests/ai_development/` keeps all of this consistent and runs with the normal offline tests.
 
