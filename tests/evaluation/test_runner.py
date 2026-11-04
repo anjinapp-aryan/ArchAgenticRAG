@@ -141,3 +141,35 @@ def test_record_keys_are_stored_per_item(mini_repo):
 def test_items_have_no_recorded_field_without_record_keys(mini_repo):
     root, config_path = mini_repo()
     assert all("recorded" not in r for r in read_run(_run(root, config_path))["items"])
+
+
+def test_items_record_ranked_retrieval_results(mini_repo):
+    from langchain_core.documents import Document
+
+    def run(inputs: dict) -> dict:
+        doc = Document(page_content="The answer to life is 42.", metadata={"doc_id": "doc-a", "chunk_id": "doc-a#000"})
+        return {"answer": "42.", "documents": [doc]}
+
+    root, config_path = mini_repo()
+    q1 = read_run(_run(root, config_path, target=RunnableLambda(run)))["items"][0]
+    assert q1["retrieval_results"] == [
+        {"rank": 1, "doc_id": "doc-a", "chunk_id": "doc-a#000", "score": None, "score_key": None, "method": None}
+    ]
+    assert q1["retrieval_calls"] == []  # this fake graph has no retriever
+
+
+async def test_deferred_judge_records_answers_and_leaves_scoring_to_resume(mini_repo):
+    from archagenticrag.evaluation.resume import pending, resume_evaluation
+
+    from .test_resume import QuotaScorer  # supports the resume-time `only` / `stop` arguments
+
+    root, config_path = mini_repo()
+    scorer = FakeScorer()
+    run_dir = _run(root, config_path, scorer=scorer, judge=False)
+    run = read_run(run_dir)
+    assert scorer.seen == [] and run["manifest"]["judge_deferred"] is True
+    assert all(r["answer"] and r["metrics"] == {} and pending(r) for r in run["items"])
+
+    session = await resume_evaluation(run_dir, repo_root=root, target=fake_target(), scorer=QuotaScorer())
+    assert session["still_pending_items"] == 0
+    assert {r["id"]: r["triage"]["label"] for r in read_run(run_dir)["items"]} == {"Q1": "PASS", "Q2": "PASS", "Q3": "AMBIGUITY"}

@@ -145,3 +145,18 @@ def test_daily_quota_detection():
     assert is_daily_quota_error(DAILY)
     assert not is_daily_quota_error(MINUTE)
     assert not is_daily_quota_error(None)
+
+
+async def test_resume_without_judge_reruns_only_failed_system_calls(mini_repo):
+    root, config_path = mini_repo()
+    run_dir = _run(root, config_path, target=fake_target(fail_on="life"), judge=False)
+    assert _items(run_dir)["Q1"]["error"]
+
+    scorer = QuotaScorer()
+    session = await resume_evaluation(run_dir, repo_root=root, target=fake_target(), scorer=scorer, judge=False)
+    items = _items(run_dir)
+    assert session["rerun_items"] == ["Q1"] and session["judge"] is False
+    assert scorer.calls == []  # no judge call
+    assert items["Q1"]["error"] is None and items["Q1"]["answer"] == "42." and items["Q1"]["metrics"] == {}
+    assert items["Q1"]["retrieval_results"][0]["rank"] == 1
+    assert all(r["metrics"] == {} for r in items.values())  # still waiting for the judge

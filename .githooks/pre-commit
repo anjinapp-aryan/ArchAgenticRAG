@@ -1,0 +1,14 @@
+#!/bin/sh
+# Versioned pre-commit hook: blocks a commit that stages a secret. Install once per clone:
+#   git config core.hooksPath .githooks
+# The checks live in .claude/hooks/guard.py (Python standard library only). See .githooks/README.md.
+# Fails closed: if the scan cannot run, the commit is blocked.
+root=$(git rev-parse --show-toplevel) || exit 1
+for py in python3 python; do
+  # `-c ""` rejects stubs that exist on PATH but do not run (for example the Microsoft Store launcher)
+  if command -v "$py" >/dev/null 2>&1 && "$py" -c "" >/dev/null 2>&1; then
+    exec "$py" "$root/.claude/hooks/guard.py" scan-staged
+  fi
+done
+echo "pre-commit: Python 3 was not found, so the secret scan cannot run; commit blocked. Install Python 3, or commit with --no-verify if you accept the risk." >&2
+exit 1

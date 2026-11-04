@@ -18,6 +18,7 @@ from typing import Any
 
 from archagenticrag.evaluation.config import Pricing, TriageThresholds
 from archagenticrag.evaluation.dataset import ExpectedBehavior, GoldenItem
+from archagenticrag.provider_fallback import provider_health
 
 
 class Failure(StrEnum):
@@ -164,7 +165,7 @@ def summarize(records: list[dict[str, Any]], pricing: list[Pricing]) -> dict[str
             else round(tok["input_tokens"] / 1e6 * p.input_usd_per_mtok + tok["output_tokens"] / 1e6 * p.output_usd_per_mtok, 6)
         )
 
-    return {
+    summary = {
         "items": len(records),
         "system_errors": sum(1 for r in records if r.get("error")),
         "metric_value_missing": dict(metric_errors),
@@ -196,3 +197,6 @@ def summarize(records: list[dict[str, Any]], pricing: list[Pricing]) -> dict[str
         "tokens_by_model": dict(tokens),
         "estimated_cost_usd_by_model": cost,
     }
+    if any(r.get("provider_calls") or r.get("judge_provider_calls") for r in records):
+        summary["provider_health"] = provider_health(records)  # fallback-mode runs only
+    return summary

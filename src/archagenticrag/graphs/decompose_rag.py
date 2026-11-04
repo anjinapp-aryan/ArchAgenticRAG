@@ -132,7 +132,10 @@ def build_graph(
     client = client if client is not None else make_client(settings.retrieval.qdrant)
     embeddings = embeddings if embeddings is not None else make_embeddings(settings.embedding)
     llm = llm if llm is not None else chat_model(
-        settings.generator.provider, settings.generator.model, settings.generator.temperature
+        settings.generator.provider,
+        settings.generator.model,
+        settings.generator.temperature,
+        strategy=settings.provider_strategy,
     )
 
     store, index_meta = open_store(client, settings, embeddings)

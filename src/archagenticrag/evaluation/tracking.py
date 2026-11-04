@@ -47,6 +47,21 @@ def package_versions() -> dict[str, str | None]:
     return versions
 
 
+def describe_provider_strategy(config: EvalConfig) -> dict[str, Any]:
+    """Run-level provider record: single provider, or the configured / participating fallback order."""
+    from archagenticrag.providers import plan_routes
+
+    def describe(ref, strategy) -> dict[str, Any]:  # noqa: ANN001
+        if strategy is None or strategy.mode == "single":
+            return {"mode": "single", "provider": ref.provider, "model": ref.model}
+        return plan_routes(ref.provider, ref.model, strategy)
+
+    return {
+        "generator": describe(config.system.generator, config.system.provider_strategy),
+        "judge": describe(config.judge.llm, config.judge.provider_strategy),
+    }
+
+
 def build_manifest(
     *,
     run_id: str,

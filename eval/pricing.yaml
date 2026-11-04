@@ -1,0 +1,13 @@
+# Price book applied at report time by eval/runners/benchmark.py (docs/PHASE-3.0-EXPERIMENT-LAB.md).
+# Copy an entry only from the provider's published price page, with its URL and the date the
+# price took effect. A model without an entry gets cost = null (unknown), never an estimate.
+# Free-tier usage is billed at zero; list prices describe what the same run would cost on a paid tier.
+pricing_version: 1
+prices: []
+#  - provider: groq
+#    model: openai/gpt-oss-120b          # as it appears in the run's token usage
+#    input_price_per_million: <from the price page>
+#    output_price_per_million: <from the price page>
+#    currency: USD
+#    effective_date: YYYY-MM-DD
+#    source_url: https://...

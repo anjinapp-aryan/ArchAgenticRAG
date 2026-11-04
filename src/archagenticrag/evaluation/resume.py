@@ -6,6 +6,8 @@ are kept. It only re-does
   * metrics that have no value because their judge call errored.
 Items are saved after each one, so an interrupted resume loses nothing. When a provider
 reports a *daily* quota error the resume stops early and leaves the rest for the next session.
+With ``judge=False`` only failed system calls are re-run (no judge call, nothing scored), which
+completes a ``--defer-judge`` run's answers and retrieval without spending judge quota.
 Every session is appended to ``manifest["resumes"]`` (time, git state, what was redone) when it
 starts and updated after each item, so even a killed session leaves a record.
 """
@@ -25,9 +27,10 @@ from archagenticrag.evaluation.dataset import file_sha256, load_dataset
 from archagenticrag.evaluation.persistence import read_run
 from archagenticrag.evaluation.target import build_target, run_target
 from archagenticrag.evaluation.tracking import git_state
+from archagenticrag.provider_fallback import DAILY_QUOTA_MARKERS, EXHAUSTED, collect_provider_calls
 
-# Provider messages for daily (not per-minute) quotas. Waiting minutes will not help with these.
-DAILY_QUOTA_MARKERS = ("tokens per day", "requests per day", "(TPD)", "(RPD)", "PerDay")
+# Waiting minutes will not help with these: a provider's daily quota, or every fallback provider failing.
+STOP_MARKERS = (*DAILY_QUOTA_MARKERS, EXHAUSTED)
 
 
 class ResumeError(RuntimeError):
@@ -35,7 +38,8 @@ class ResumeError(RuntimeError):
 
 
 def is_daily_quota_error(message: str | None) -> bool:
-    return bool(message) and any(marker in message for marker in DAILY_QUOTA_MARKERS)
+    """A daily quota, or PROVIDER_EXHAUSTED from the fallback transport: stop this session."""
+    return bool(message) and any(marker in message for marker in STOP_MARKERS)
 
 
 def failed_metrics(record: dict[str, Any]) -> list[str] | None:
@@ -71,6 +75,7 @@ async def resume_evaluation(
     repo_root: str | Path = ".",
     target: Any = None,
     scorer: Any = None,
+    judge: bool = True,
 ) -> dict[str, Any]:
     """Re-do the failed parts of ``run_dir`` in place and return this session's log entry."""
     os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")
@@ -88,9 +93,10 @@ async def resume_evaluation(
     golden = {item.id: item for item in load_dataset(dataset_path).items}
 
     records: list[dict[str, Any]] = run["items"]
-    todo = [r for r in records if pending(r)]
+    todo = [r for r in records if (pending(r) if judge else r.get("error"))]
     session: dict[str, Any] = {
         "started_at": datetime.now(UTC).isoformat(),
+        "judge": judge,
         "git": git_state(repo_root),
         "pending_items": len(todo),
         "rerun_items": [],
@@ -100,7 +106,7 @@ async def resume_evaluation(
     }
     manifest.setdefault("resumes", []).append(session)
     _write_json(run_dir / "manifest.json", manifest)
-    if todo and scorer is None:
+    if todo and scorer is None and judge:
         from archagenticrag.evaluation.metrics import RagasScorer
 
         scorer = RagasScorer.from_judge_config(config.metrics, config.judge)
@@ -129,18 +135,29 @@ async def resume_evaluation(
                 error=None,
                 metrics={},
                 retrieval=analysis.retrieval_checks(g, res.contexts, res.context_doc_ids),
+                retrieval_results=res.retrieval_results,
+                retrieval_calls=res.retrieval_calls,
             )
             if config.target.record_keys:
                 record["recorded"] = res.recorded
+            if res.provider_calls:
+                record["provider_calls"] = res.provider_calls
             session["rerun_items"].append(g.id)
 
+        if not judge:
+            _write_items(run_dir, records)
+            _write_json(run_dir / "manifest.json", manifest)
+            continue
         only = failed_metrics(record)
         try:
             # stop at the first daily-quota error inside the item: the SDK's own retries on the
             # remaining metrics would only wait out a quota that will not reset for hours
-            outcomes = await scorer.score(
-                g, record["answer"], record["contexts"], only=only, stop=lambda o: is_daily_quota_error(o.error)
-            )
+            with collect_provider_calls() as judge_calls:
+                outcomes = await scorer.score(
+                    g, record["answer"], record["contexts"], only=only, stop=lambda o: is_daily_quota_error(o.error)
+                )
+            if judge_calls:
+                record.setdefault("judge_provider_calls", []).extend(judge_calls)
         except Exception as exc:  # scorer-level failure: record, keep going
             record["metrics"] = {"_scorer": {"value": None, "reason": None, "error": f"{type(exc).__name__}: {exc}"}}
             outcomes = []

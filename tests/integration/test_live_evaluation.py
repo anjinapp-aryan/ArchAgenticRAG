@@ -38,6 +38,8 @@ def test_one_golden_question_through_the_evaluator(tmp_path):
     assert item["error"] is None
     assert item["answer"].strip()
     assert "pep-0008" in item["retrieval"]["retrieved_doc_ids"]
+    assert [r["rank"] for r in item["retrieval_results"]] == [1, 2, 3, 4]
+    assert all(r["chunk_id"].startswith("pep-") for r in item["retrieval_results"])
     assert item["metrics"], "Ragas produced no metrics"
     assert run["manifest"]["target_metadata"]["index"]["embedding_dimension"] == 384
 
@@ -64,4 +66,5 @@ def test_phase31_one_golden_question_through_the_evaluator(tmp_path):
     assert item["recorded"]["sub_questions"][0] == item["question"]
     assert 1 <= len(item["recorded"]["sub_questions"]) <= 3
     assert item["llm_calls"] == 2  # decompose + generate
+    assert len(item["retrieval_calls"]) == len(item["recorded"]["sub_questions"])  # one retrieval per sub-question
     assert run["manifest"]["target_metadata"]["graph"] == "decompose_rag"

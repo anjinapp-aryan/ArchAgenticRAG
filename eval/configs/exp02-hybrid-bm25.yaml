@@ -1,0 +1,84 @@
+# Experiment 02: hybrid retrieval (dense + BM25, Qdrant RRF). docs/EXPERIMENT-02-HYBRID-RETRIEVAL.md
+# Identical to baseline-basic-rag.yaml except run_name and system.retrieval (mode, sparse, fusion,
+# collection); a test pins the diff.
+# Change any value here and the config fingerprint (part of the run id) changes too.
+config_version: 1
+run_name: exp02-hybrid-bm25
+
+dataset:
+  path: eval/datasets/peps-v1/golden.json
+  corpus_dir: data/corpus/peps
+
+# System under test. The factory receives `system=` (below) and returns a compiled graph.
+# Settings are validated strictly by archagenticrag.rag.settings at graph build time.
+target:
+  factory: archagenticrag.graphs.basic_rag:build_graph
+  kwargs: {}
+  input_key: question
+  answer_key: answer
+  contexts_key: documents        # list[langchain Document] (metadata.doc_id -> doc id)
+
+system:
+  generator:                      # different model family from the judge (self-preference bias)
+    provider: groq
+    model: openai/gpt-oss-120b    # listed by Groq /models on 2026-10-01; preflight re-checks
+    temperature: 0
+  embedding:
+    provider: local               # FastEmbed, ONNX on CPU, no key, no server
+    model: BAAI/bge-small-en-v1.5 # MIT license, 384 dimensions
+  reranker: null                  # Basic RAG: no reranker
+  retrieval:
+    mode: hybrid                  # dense + sparse, fused by Qdrant (langchain-qdrant RetrievalMode.HYBRID)
+    sparse:
+      provider: local             # FastEmbed SparseTextEmbedding, CPU
+      model: Qdrant/bm25          # BM25 term weights; Qdrant applies IDF (modifier: idf)
+      modifier: idf
+    fusion: rrf                   # Qdrant FusionQuery(Fusion.RRF)
+    top_k: 4                      # each branch returns 4 candidates; RRF keeps the final 4 (same as baseline)
+    search_type: similarity
+    embedding_dimension: 384      # checked against the model and the Qdrant collection
+    qdrant:
+      url: http://localhost:6333  # docker compose up -d qdrant
+      collection: peps_v1_bge_small_docling_480_hybrid_bm25   # separate index; baseline collection untouched
+  chunking:
+    strategy: docling_hybrid      # Docling HybridChunker (heading-aware, token-bounded)
+    tokenizer: BAAI/bge-small-en-v1.5
+    max_tokens: 480               # bge-small truncates at 512; leaves room for the PEP title line
+    merge_peers: true
+
+# Ragas judge. Qwen (Alibaba), a different model family from the OpenAI gpt-oss generator.
+# Gemini (5 RPM free tier) and NVIDIA NIM (timeouts / 404) could not sustain a full run.
+judge:
+  llm:
+    provider: groq
+    model: qwen/qwen3.8-27b
+    temperature: 0
+  embedding:
+    provider: gemini
+    model: gemini-embedding-001
+
+metrics:
+  - faithfulness
+  - answer_relevancy
+  - context_precision
+  - context_recall
+  - answer_correctness
+  - abstention
+  - clarification
+
+triage:                           # provisional thresholds for failure labels
+  context_recall: 0.5
+  faithfulness: 0.7
+  answer_correctness: 0.5
+  answer_relevancy: 0.5
+  context_precision: 0.5
+
+# Only add an entry copied from the provider's price page, with its URL and the date.
+# Models without an entry get cost = null (unknown), never an estimate.
+pricing: []
+
+langfuse:
+  enabled: false                  # set true once the self-hosted Langfuse stack is running
+  dataset_name: peps-golden-v1
+
+max_concurrency: 2               # free-tier rate limits (Groq: 8000 tokens/min per model)

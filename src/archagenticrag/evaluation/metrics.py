@@ -97,7 +97,8 @@ class RagasScorer:
         from archagenticrag.evaluation.providers import async_client
 
         llm_kwargs = {} if judge.llm.temperature is None else {"temperature": judge.llm.temperature}
-        llm = llm_factory(judge.llm.model, provider="openai", client=async_client(judge.llm.provider), **llm_kwargs)
+        client = async_client(judge.llm.provider, model=judge.llm.model, strategy=judge.provider_strategy, role="judge")
+        llm = llm_factory(judge.llm.model, provider="openai", client=client, **llm_kwargs)
         builders = {
             "faithfulness": lambda: Faithfulness(llm=llm),
             "answer_relevancy": lambda: AnswerRelevancy(

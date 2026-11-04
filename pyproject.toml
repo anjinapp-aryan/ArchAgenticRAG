@@ -18,6 +18,7 @@ dependencies = [
     "fastembed==0.8.1",                 # local ONNX embeddings (via langchain-community FastEmbedEmbeddings)
     "docling-slim[convert-core,feat-chunking,format-html]==2.131.0",
     "docutils>=0.23,<0.24",             # PEP reader: reStructuredText -> HTML (Docling has no RST backend)
+    "langchain-classic==1.0.8",         # Experiment 03: ContextualCompressionRetriever (moved out of langchain 1.x)
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,10 @@ eval = [
     "langchain-community>=0.3.31,<0.4",
     "langfuse==4.16.0",
     "openai>=2,<4",
+    # Phase 3.0 ranking metrics (Recall@K, MRR, nDCG): trec_eval via ir_measures.
+    # Verified 2026-10-27 (docs/PHASE-3.0-EXPERIMENT-LAB.md, appendix A).
+    "ir-measures==0.4.3",
+    "pytrec-eval-terrier==0.5.11",
 ]
 
 [dependency-groups]
