@@ -398,3 +398,15 @@ def test_the_commit_gate_includes_the_checkpoint_tests(monkeypatch):
     monkeypatch.setattr(guard, "git", lambda *a, **k: "AGENTS.md\n")
     monkeypatch.setattr(guard, "checkpoint_test_failures", lambda names: ["AI-development tests fail: x"] if "AGENTS.md" in names else [])
     assert guard.commit_findings(["-m", "msg"]) == ["AI-development tests fail: x"]
+
+
+def test_a_pytest_timeout_at_the_commit_gate_is_reported_not_swallowed(monkeypatch):
+    """A slow suite must not turn into a silent pass (or a fail-open that drops the secret findings)."""
+    monkeypatch.setattr(guard, "project_python", lambda: "python")
+
+    def slow(args, timeout=85):
+        raise subprocess.TimeoutExpired(cmd="pytest", timeout=timeout)
+
+    monkeypatch.setattr(guard, "run_pytest", slow)
+    findings = guard.checkpoint_test_failures(["AGENTS.md", "eval/configs/exp04-new.yaml"])
+    assert len(findings) == 2 and all("did not finish in time" in f for f in findings)
